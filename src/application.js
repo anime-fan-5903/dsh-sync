@@ -76,15 +76,17 @@ export class Application {
     this.operations = next.catch(() => {}); return next;
   }
   async saveDeviceKey() {
-    const state = await this.store.read();
-    if (!state.encrypted || !this.engine.key) return;
     try {
+      // Reading the local store is part of optional caching too: it must not hide
+      // a recovery key after the cloud has already accepted new encryption metadata.
+      const state = await this.store.read();
+      if (!state.encrypted || !this.engine.key) return;
       await this.deviceTrust.rememberKey(state.vaultId, this.engine.key); this.deviceError = null;
     } catch {
-      // An optional cache failure must not suppress a successfully issued one-time recovery key.
       this.deviceError = { code: 'device-cache-failed', message: 'Automatic unlock could not be saved. This session remains unlocked; enter the passphrase after restarting.' };
     }
     this.onChange();
+    return this.deviceError;
   }
   async lockDevice() {
     try { await this.deviceTrust.lock(); this.deviceError = null; }
@@ -150,7 +152,10 @@ export class Application {
         else if (action === 'unlock') result = await this.engine.unlock(input.secret,input.method);
         else if (action === 'enable-encryption') result = await this.engine.enableEncryption(input.passphrase);
         else result = await this.engine.changePassphrase(input.passphrase);
-        await this.saveDeviceKey(); return result;
+        if (result.localCompleted === false) return result;
+        const cacheError = await this.saveDeviceKey();
+        if (result.recoveryKey && cacheError) return { ...result, remotePublished: true, localCompleted: false, error: cacheError };
+        return result;
       }
       case 'sync': {
         try { return await this.engine.synchronize(input.decisions ?? {}); }

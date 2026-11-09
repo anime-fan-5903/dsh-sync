@@ -125,6 +125,18 @@ export class SyncEngine {
       finally { this.onChange(); }
     });
   }
+  async finishEncryption(state, result, recoveryKey, outcome) {
+    // Publication cannot be rolled back by a local failure. Always return the newly
+    // issued recovery key to the user, without putting it in status or diagnostics.
+    try {
+      await this.finish(state, result);
+      return { ...outcome, recoveryKey, remotePublished: true, localCompleted: true };
+    } catch {
+      this.phase = 'error';
+      this.error = { code: 'encryption-local-failed', message: 'The encryption change was published, but local completion failed. Save the new recovery key and retry synchronization after fixing local storage or file access.' };
+      return { ...outcome, recoveryKey, remotePublished: true, localCompleted: false, error: this.error };
+    }
+  }
   async enableEncryption(passphrase) {
     return this.store.exclusive(async () => {
       const state = await this.store.read(); invariant(state.vaultId && !state.encrypted, 'Initialize a plaintext vault before enabling encryption.');
@@ -135,13 +147,14 @@ export class SyncEngine {
       await this.backupDiscarded(state, result.discarded);
       const setup = await createKeyring(state.vaultId, passphrase);
       try {
-        await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: setup.keyring, key: setup.key }));
-        this.lock(); this.key = setup.key; this.unlockedKeyring = setup.keyring.id;
-        state.backups = state.backups.map(backup => ({ ...backup, envelope: encodeEnvelope({ vaultId: state.vaultId,
+        // Prepare encrypted backups before the irreversible cloud transition.
+        const backups = state.backups.map(backup => ({ ...backup, envelope: encodeEnvelope({ vaultId: state.vaultId,
           assets: decodeEnvelope(backup.envelope), keyring: setup.keyring, key: setup.key }) }));
-        Object.assign(state, { encrypted: true, keyring: setup.keyring });
-        await this.finish(state, result);
-        return { encrypted: true, recoveryKey: setup.recoveryKey, warning: 'Previously uploaded plaintext may remain in OneDrive snapshots, version history, recycle bins, and other devices.' };
+        await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: setup.keyring, key: setup.key }));
+        wipe(this.key); this.key = setup.key; this.unlockedKeyring = setup.keyring.id;
+        Object.assign(state, { encrypted: true, keyring: setup.keyring, backups });
+        return await this.finishEncryption(state, result, setup.recoveryKey, { encrypted: true,
+          warning: 'Previously uploaded plaintext may remain in OneDrive snapshots, version history, recycle bins, and other devices.' });
       } catch (error) { if (this.key !== setup.key) wipe(setup.key); throw error; }
     });
   }
@@ -156,8 +169,8 @@ export class SyncEngine {
       try {
         await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: setup.keyring, key: setup.key }));
         const oldKey = this.key; this.key = setup.key; this.unlockedKeyring = setup.keyring.id; wipe(oldKey);
-        state.keyring = setup.keyring; await this.finish(state, result);
-        return { changed: true, recoveryKey: setup.recoveryKey };
+        state.keyring = setup.keyring;
+        return await this.finishEncryption(state, result, setup.recoveryKey, { changed: true });
       } catch (error) { if (this.key !== setup.key) wipe(setup.key); throw error; }
     });
   }

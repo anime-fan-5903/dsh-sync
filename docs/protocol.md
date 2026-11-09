@@ -46,7 +46,7 @@ Changing the passphrase rewraps the master key, issues a new recovery key, and c
 
 Rejected conflict versions are backed up before either side is replaced. Local state, baseline, and at most ten backups are persisted through one atomic JSON replacement. Encrypted-vault backups are encrypted, but active local assets remain plaintext for DSH use. Restoration stages an asset locally; it does not force an immediate cloud overwrite.
 
-Published cloud state and local persistence are not a distributed transaction. If local saving fails after publication, the unchanged baseline causes the next sync to compare against the already published data. No acknowledgement is reported until local state is saved.
+Published cloud state and local persistence are not a distributed transaction. If local saving fails after publication, the unchanged baseline causes the next sync to compare against the already published data. No full synchronization acknowledgement is reported until local state is saved. Encryption enablement and passphrase changes return the newly issued recovery key even if local completion fails after confirmed publication: `remotePublished: true` and `localCompleted: false` explicitly distinguish this partial outcome from publication failure. The user-only settings response carries the key; status and agent responses do not. A local state-read or protected-cache failure while saving automatic unlock must not suppress that response. Repair local access or storage and retry synchronization against the already published keyring rather than assuming rollback.
 
 ## Limits and compatibility
 

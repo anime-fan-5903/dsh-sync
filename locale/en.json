@@ -31,6 +31,7 @@
   "passphraseMismatch": "The passphrases do not match.",
   "passphraseRequired": "Enter and confirm a passphrase of at least 12 characters.",
   "recoveryTitle": "Save your recovery key",
+  "encryptionPublishedLocalFailed": "The encryption change succeeded in OneDrive, but this device could not finish applying or saving it, including its automatic-unlock cache. Save this new recovery key now. The cloud change was not rolled back. Fix local file access or storage problems, then refresh and sync; you may need to unlock with the new passphrase or this key.",
   "recoveryOnce": "Shown only once. Save this recovery key now. After confirmation, this exact key cannot be displayed again.",
   "recoveryWarning": "If you forget your passphrase, you need this key to unlock a new or untrusted device. Do not rely only on a remembered device: losing access to it and both secrets prevents recovery of encrypted cloud data.",
   "recoveryHelp": "Keep it somewhere safe, separate from this device and OneDrive. A newly issued recovery key replaces the previous one.",
@@ -191,5 +192,6 @@
   "error_native-invalid": "A native asset could not be inspected or validated.",
   "error_EACCES": "Access was denied. Check the Host's access permissions for the affected resource.",
   "error_EPERM": "The operating system did not permit this operation. Check the Host's permissions and restrictions.",
-  "error_ENOENT": "A required file or directory could not be found. Refresh and check the affected location."
+  "error_ENOENT": "A required file or directory could not be found. Refresh and check the affected location.",
+  "error_encryption-local-failed": "The encryption change succeeded in OneDrive, but this device could not finish applying or saving it, including its automatic-unlock cache. Save this new recovery key now. The cloud change was not rolled back. Fix local file access or storage problems, then refresh and sync; you may need to unlock with the new passphrase or this key."
 }

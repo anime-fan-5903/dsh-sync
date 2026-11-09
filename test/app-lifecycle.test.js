@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { randomBytes, createCipheriv, createDecipheriv, createHash } from 'node:crypto';
 import { Application } from '../src/application.js';
+import { decodeEnvelope, unlockKeyring, wipe } from '../src/crypto.js';
 
 function fixtureProtector() {
   const key=randomBytes(32);
@@ -78,3 +79,33 @@ test('startup rejects invalid local assets without rewriting state or native fil
   assert.equal(await readFile(stateFile,'utf8'),source);
   assert.equal(await readFile(path.join(h.roots.dsh,'AGENTS.md'),'utf8'),'Preserved native fixture');
 });
+
+for (const action of ['enable-encryption', 'change-passphrase']) {
+  for (const failure of ['state-write', 'cache-read', 'cache-write']) {
+    test(`${action} preserves the recovery key across ${failure} after remote publication`, async t => {
+      const h = await harness(t); const app = await h.create();
+      await app.operation('initialize', { encrypted: action === 'change-passphrase', passphrase });
+      const revision = h.cloud.remote.revision;
+      const read = app.store.read.bind(app.store); const write = app.store.write.bind(app.store);
+      app.store.read = async () => {
+        if (failure === 'cache-read' && h.cloud.remote.revision !== revision) throw new Error('Fixture cache state read failed.');
+        return read();
+      };
+      app.store.write = async state => {
+        if (failure === 'state-write' && h.cloud.remote.revision !== revision) throw new Error('Fixture local state write failed.');
+        return write(state);
+      };
+      if (failure === 'cache-write') app.deviceTrust.rememberKey = async () => { throw new Error('Fixture cache write failed.'); };
+      let result;
+      try { result = await app.operation(action, { passphrase: 'A replacement lifecycle passphrase' }); }
+      finally { app.store.read = read; app.store.write = write; }
+      assert.ok(result.recoveryKey); assert.equal(result.remotePublished, true); assert.equal(result.localCompleted, false);
+      assert.equal(result.error.code, failure === 'state-write' ? 'encryption-local-failed' : 'device-cache-failed');
+      const remote = h.cloud.remote.envelope;
+      const recovered = await unlockKeyring(remote.vaultId, remote.keyring, result.recoveryKey, 'recovery');
+      assert.deepEqual(decodeEnvelope(remote, recovered), []); wipe(recovered);
+      for (const caller of ['agent']) await assert.rejects(app.operation(action, { passphrase }, caller), { code: 'user-only' });
+      assert.ok(!JSON.stringify(await app.status()).includes(result.recoveryKey));
+    });
+  }
+}

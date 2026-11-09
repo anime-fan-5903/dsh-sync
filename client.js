@@ -34,6 +34,7 @@ window.__ModuleLoader__.load({
     "passphraseMismatch": "The passphrases do not match.",
     "passphraseRequired": "Enter and confirm a passphrase of at least 12 characters.",
     "recoveryTitle": "Save your recovery key",
+    "encryptionPublishedLocalFailed": "The encryption change succeeded in OneDrive, but this device could not finish applying or saving it, including its automatic-unlock cache. Save this new recovery key now. The cloud change was not rolled back. Fix local file access or storage problems, then refresh and sync; you may need to unlock with the new passphrase or this key.",
     "recoveryOnce": "Shown only once. Save this recovery key now. After confirmation, this exact key cannot be displayed again.",
     "recoveryWarning": "If you forget your passphrase, you need this key to unlock a new or untrusted device. Do not rely only on a remembered device: losing access to it and both secrets prevents recovery of encrypted cloud data.",
     "recoveryHelp": "Keep it somewhere safe, separate from this device and OneDrive. A newly issued recovery key replaces the previous one.",
@@ -194,7 +195,8 @@ window.__ModuleLoader__.load({
     "error_native-invalid": "A native asset could not be inspected or validated.",
     "error_EACCES": "Access was denied. Check the Host's access permissions for the affected resource.",
     "error_EPERM": "The operating system did not permit this operation. Check the Host's permissions and restrictions.",
-    "error_ENOENT": "A required file or directory could not be found. Refresh and check the affected location."
+    "error_ENOENT": "A required file or directory could not be found. Refresh and check the affected location.",
+    "error_encryption-local-failed": "The encryption change succeeded in OneDrive, but this device could not finish applying or saving it, including its automatic-unlock cache. Save this new recovery key now. The cloud change was not rolled back. Fix local file access or storage problems, then refresh and sync; you may need to unlock with the new passphrase or this key."
   },
   "zh-CN": {
     "title": "DSH Sync",
@@ -225,6 +227,7 @@ window.__ModuleLoader__.load({
     "passphraseMismatch": "两次输入的口令不一致。",
     "passphraseRequired": "请输入并确认至少 12 个字符的口令。",
     "recoveryTitle": "保存恢复密钥",
+    "encryptionPublishedLocalFailed": "加密更改已在 OneDrive 中成功发布，但此设备未能完成本地应用或保存（包括自动解锁缓存）。请立即保存这个新恢复密钥。云端更改并未回滚。修复本地文件访问或存储问题后，请刷新并同步；你可能需要使用新口令或此密钥解锁。",
     "recoveryOnce": "仅显示一次。请立即保存此恢复密钥。确认后，无法再次显示这一密钥。",
     "recoveryWarning": "如果忘记口令，你需要此密钥来解锁新设备或不受信任的设备。请勿仅依赖已记住的设备：如果无法再访问该设备，且同时丢失口令和恢复密钥，将无法恢复加密的云端数据。",
     "recoveryHelp": "请将其保存在安全的地方，与此设备和 OneDrive 分开存放。新签发的恢复密钥将替换之前的密钥。",
@@ -385,7 +388,8 @@ window.__ModuleLoader__.load({
     "error_native-invalid": "无法检查或验证原生资产。",
     "error_EACCES": "访问被拒绝。请检查 Host 对相关资源的访问权限。",
     "error_EPERM": "操作系统不允许此操作。请检查 Host 的权限和限制。",
-    "error_ENOENT": "找不到所需的文件或目录。请刷新并检查相关位置。"
+    "error_ENOENT": "找不到所需的文件或目录。请刷新并检查相关位置。",
+    "error_encryption-local-failed": "加密更改已在 OneDrive 中成功发布，但此设备未能完成本地应用或保存（包括自动解锁缓存）。请立即保存这个新恢复密钥。云端更改并未回滚。修复本地文件访问或存储问题后，请刷新并同步；你可能需要使用新口令或此密钥解锁。"
   },
   "ja": {
     "title": "DSH Sync",
@@ -416,6 +420,7 @@ window.__ModuleLoader__.load({
     "passphraseMismatch": "パスフレーズが一致しません。",
     "passphraseRequired": "12 文字以上のパスフレーズを入力し、確認用にも入力してください。",
     "recoveryTitle": "回復キーを保存してください",
+    "encryptionPublishedLocalFailed": "暗号化の変更は OneDrive で成功しましたが、このデバイスでの適用または保存（自動ロック解除キャッシュを含む）を完了できませんでした。この新しい回復キーを今すぐ保存してください。クラウドの変更は取り消されていません。ローカルファイルへのアクセスやストレージの問題を解決してから、更新して同期してください。新しいパスフレーズまたはこのキーでロックを解除する必要がある場合があります。",
     "recoveryOnce": "表示は一度だけです。この回復キーを今すぐ保存してください。確認後、このキーを再表示することはできません。",
     "recoveryWarning": "パスフレーズを忘れた場合、新しいデバイスや信頼されていないデバイスのロック解除にはこのキーが必要です。記憶済みのデバイスだけに頼らないでください。そのデバイスにアクセスできなくなり、パスフレーズと回復キーの両方を失うと、暗号化されたクラウドデータを復旧できません。",
     "recoveryHelp": "このデバイスや OneDrive とは別の安全な場所に保管してください。新しく発行された回復キーは、以前のキーを置き換えます。",
@@ -576,7 +581,8 @@ window.__ModuleLoader__.load({
     "error_native-invalid": "ネイティブアセットを検査または検証できませんでした。",
     "error_EACCES": "アクセスが拒否されました。該当するリソースへの Host のアクセス権を確認してください。",
     "error_EPERM": "OS がこの操作を許可しませんでした。Host の権限と制限を確認してください。",
-    "error_ENOENT": "必要なファイルまたはディレクトリが見つかりません。更新して該当する場所を確認してください。"
+    "error_ENOENT": "必要なファイルまたはディレクトリが見つかりません。更新して該当する場所を確認してください。",
+    "error_encryption-local-failed": "暗号化の変更は OneDrive で成功しましたが、このデバイスでの適用または保存（自動ロック解除キャッシュを含む）を完了できませんでした。この新しい回復キーを今すぐ保存してください。クラウドの変更は取り消されていません。ローカルファイルへのアクセスやストレージの問題を解決してから、更新して同期してください。新しいパスフレーズまたはこのキーでロックを解除する必要がある場合があります。"
   }
 };
     // END GENERATED LOCALES
@@ -754,7 +760,10 @@ window.__ModuleLoader__.load({
               if (result?.recoveryKey) { setRecovery(result.recoveryKey); recoveryRef.current = result.recoveryKey; setSavedRecovery(false); setRecoveryCopyStatus(''); }
               setPassphrase(''); setConfirmation(''); setSecret('');
               if (after) await after(result);
-              if (mounted.current) setNotice(action === 'asset-open' ? 'editorOpened' : 'done');
+              if (mounted.current) {
+                if (result?.remotePublished && result.localCompleted === false) setError({ messageKey: 'encryptionPublishedLocalFailed' });
+                else setNotice(action === 'asset-open' ? 'editorOpened' : 'done');
+              }
             } catch (failure) {
               if (mounted.current && failure.name !== 'AbortError') setError(captureError(failure, [payload.passphrase, payload.secret]));
             } finally {
@@ -854,6 +863,7 @@ window.__ModuleLoader__.load({
               onCancel: event => event.preventDefault(),
               onKeyDownCapture: event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); } } },
               h('h2', { id: 'dsh-sync-recovery-title' }, t('recoveryTitle')),
+              error?.messageKey === 'encryptionPublishedLocalFailed' && h('p', { role: 'alert', className: 'ds-warning' }, t('encryptionPublishedLocalFailed')),
               h('p', { id: 'dsh-sync-recovery-once', className: 'ds-warning' }, t('recoveryOnce')),
               h('p', { id: 'dsh-sync-recovery-warning' }, t('recoveryWarning')), text('recoveryHelp'),
               h('code', { className: 'ds-key' }, recovery),

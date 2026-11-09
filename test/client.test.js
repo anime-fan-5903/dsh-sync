@@ -691,3 +691,33 @@ test('expired authorization removes the stale fallback link', async () => {
   assert.equal(flatten(app.render()).filter(node => node.type === 'a').length, 0);
   app.unmount();
 });
+
+for (const [action, label, status] of [
+  ['enable-encryption', 'Enable encryption', base],
+  ['change-passphrase', 'Change passphrase', { ...base, encrypted: true, locked: false }],
+]) {
+  for (const failure of ['encryption-local-failed', 'device-cache-failed']) {
+    test(`${action} shows remote success and ${failure} inside the recovery modal even when refresh fails`, async () => {
+      const app = harness(); await app.mount(); app.states[state.status] = status;
+      app.states[state.passphrase] = 'A long fixture passphrase'; app.states[state.confirmation] = 'A long fixture passphrase';
+      app.replies.push({ recoveryKey: 'FIXTURE-PARTIAL-RECOVERY-KEY', remotePublished: true, localCompleted: false,
+        error: { code: failure, message: 'Fixture diagnostic must not replace the explicit outcome.' } });
+      app.getReplies.push(new Error('Fixture local store is unavailable.'));
+      app.click(label); await flush();
+      const tree = app.commit(); const modal = flatten(tree).find(node => node.type === 'dialog');
+      assert.ok(modal); assert.equal(app.dialog.open, true);
+      assert.ok(flatten(modal).some(node => node.type === 'code' && node.children.includes('FIXTURE-PARTIAL-RECOVERY-KEY')));
+      assert.ok(flatten(modal).some(node => node.props.role === 'alert' && node.children.includes(english.encryptionPublishedLocalFailed)));
+      assert.equal(app.states[state.notice], '', 'Partial completion must not say Done.');
+      assert.ok(!JSON.stringify(tree).includes('Fixture diagnostic'));
+      assert.equal(app.button(english.recoveryConfirm).props.disabled, true);
+      assert.equal(app.states[state.passphrase], ''); assert.equal(app.states[state.confirmation], '');
+      await app.click(english.recoveryCopy); assert.deepEqual(app.clipboardWrites, ['FIXTURE-PARTIAL-RECOVERY-KEY']);
+      app.states[state.savedRecovery] = true; app.click(english.recoveryConfirm); app.commit();
+      assert.equal(app.dialog.open, false); assert.equal(app.states[state.recovery], '');
+      assert.ok(flatten(app.render()).some(node => node.props.role === 'alert' && node.children.includes(english.encryptionPublishedLocalFailed)));
+      assert.ok(!JSON.stringify(app.render()).includes('FIXTURE-PARTIAL-RECOVERY-KEY'));
+      app.unmount();
+    });
+  }
+}

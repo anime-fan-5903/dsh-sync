@@ -152,7 +152,7 @@ test('round-trips prompts and complete Skills into absent roots, edits, and dele
   assert.equal(await readFile(path.join(roots.dsh, 'skills/example/references/b.md'), 'utf8'), 'B');
   assert.deepEqual(await files.apply({ before: (await files.scan()).assets, after: [] }), { changed: 3 });
   assert.deepEqual((await files.scan()).assets, []);
-  assert.ok((await lstat(roots.dsh)).isDirectory()); assert.deepEqual(await readdir(roots.dsh), []);
+  assert.ok((await lstat(roots.dsh)).isDirectory()); assert.deepEqual(await readdir(roots.dsh), ['.dsh-sync-recovery']);
 });
 
 test('Skill creation writes SKILL.md after its resource files', async t => {

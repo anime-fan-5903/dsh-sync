@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { constants } from 'node:fs';
-import { lstat, readdir, open, mkdir, rename, unlink, rmdir } from 'node:fs/promises';
+import { lstat, readdir, open, mkdir, rename, link, unlink, rmdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { MAX_BYTES, canonical, hash, invariant, nativeId, nativeOriginKey, safeRelative, validateAsset, validateAssets, validateOrigin } from './model.js';
 
@@ -107,7 +107,13 @@ export class NativeFiles {
     invariant(this.roots[name], 'The requested native root is not configured.', 'native-root-missing'); return this.roots[name];
   }
   async checked(name, relative = '', caseCheck = false) {
-    const root = this.root(name); if (relative) safeRelative(relative);
+    const root = this.root(name);
+    if (relative) {
+      // Internal recovery storage adds a fixed prefix to an already validated
+      // native path. Do not charge that prefix against the protocol path limit.
+      const saved = /^\.dsh-sync-recovery\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/(.+)$/.exec(relative);
+      safeRelative(saved ? saved[1] : relative);
+    }
     const absolute = path.join(root, ...relative.split('/').filter(Boolean));
     const parsed = path.parse(root); const rootParts = path.relative(parsed.root, root).split(path.sep).filter(Boolean);
     const components = [...rootParts, ...relative.split('/').filter(Boolean)]; let current = parsed.root;
@@ -341,7 +347,29 @@ export class NativeFiles {
     }
     await this.checked(name, relative, true);
   }
-  async atomicWrite(name, relative, bytes, expected) {
+  async retainTarget(name, relative, expected, recovery) {
+    await this.assertFile(name, relative, expected);
+    if (!recovery[name]) {
+      const directory = '.dsh-sync-recovery';
+      await this.ensureParents(name, `${directory}/entry`);
+      const parent = await this.checked(name, directory, true);
+      if ((await readdir(parent.absolute)).length >= 10) throw failure('native-recovery-full', 'Native recovery storage is full. Preserve or remove old .dsh-sync-recovery batches before retrying.');
+      const batch = `${directory}/${randomUUID()}`;
+      await mkdir((await this.checked(name, batch, true)).absolute, { mode: 0o700 });
+      recovery[name] = batch;
+    }
+    const saved = `${recovery[name]}/${relative}`;
+    await this.ensureParents(name, saved);
+    await this.assertFile(name, relative, expected);
+    const source = await this.checked(name, relative, true);
+    const destination = await this.checked(name, saved, true);
+    // Move the actual directory entry, not a previously read copy. Keep its inode even
+    // on success: an editor may still hold a writable handle to the displaced file.
+    await rename(source.absolute, destination.absolute);
+    const bytes = await this.readBytes(name, saved);
+    if (!bytes || !bytes.equals(expected)) throw failure('local-changed', 'A native target changed during removal; its actual file is retained in .dsh-sync-recovery.');
+  }
+  async atomicWrite(name, relative, bytes, expected, recovery = {}) {
     await this.assertFile(name, relative, expected); await this.ensureParents(name, relative);
     const directory = path.posix.dirname(relative); const temp = `${directory === '.' ? '' : `${directory}/`}.dsh-sync-${randomUUID()}.tmp`;
     const inspected = await this.checked(name, temp, true);
@@ -360,7 +388,11 @@ export class NativeFiles {
       const temporary = await this.checked(name, temp);
       if (!temporary.exists || !equalFileInfo(temporary.info, owned)) throw failure('local-changed', 'A native temporary file changed before publication.');
       const target = await this.checked(name, relative, true);
-      await rename(temporary.absolute, target.absolute);
+      if (expected !== undefined) await this.retainTarget(name, relative, expected, recovery);
+      // Hard-link publication is atomic and fails if an external editor creates a
+      // new target. A rename here would silently replace that newly created file.
+      try { await link(temporary.absolute, target.absolute); }
+      catch (error) { if (error.code === 'EEXIST') throw failure('local-changed', 'A native target appeared before publication; no file was overwritten.'); throw error; }
     } finally {
       await handle.close().catch(() => {});
       try { const temporary = await this.checked(name, temp); if (temporary.exists && owned && temporary.info.ino === owned.ino && temporary.info.dev === owned.dev && temporary.info.isFile()) await unlink(temporary.absolute); } catch {}
@@ -401,30 +433,73 @@ export class NativeFiles {
     const previous = this.selected(before, options); const desired = this.selected(after, options);
     await this.assertSnapshot(previous, input);
     const changes = [...new Set([...previous.keys(), ...desired.keys()])].sort().filter(key => hash(previous.get(key)) !== hash(desired.get(key)));
-    // Preflight all desired target paths and unsafe deletions before the first write.
+    const oldPaths = new Map(); const newPaths = new Map();
+    for (const asset of previous.values()) for (const [relative, bytes] of resourcePaths(asset)) oldPaths.set(`${asset.origin.root}:${relative}`, { root: asset.origin.root, relative, bytes });
+    for (const asset of desired.values()) for (const [relative, bytes] of resourcePaths(asset)) newPaths.set(`${asset.origin.root}:${relative}`, { root: asset.origin.root, relative, bytes });
+    const removed = [...oldPaths].filter(([key]) => !newPaths.has(key)).map(([, file]) => file);
+    const removedKeys = new Set(removed.map(file => `${file.root}:${file.relative}`));
+    // Validate the current tree, then model targets after tracked obstructions are
+    // removed. Never accept an untracked file/directory as a planned obstruction.
+    for (const file of oldPaths.values()) await this.assertFile(file.root, file.relative, file.bytes);
+    const checkTarget = async (root, relative) => {
+      const components = relative.split('/');
+      for (let index = 1; index <= components.length; index++) {
+        const prefix = components.slice(0, index).join('/');
+        const inspected = await this.checked(root, prefix);
+        const parent = path.posix.dirname(prefix);
+        const parentPath = await this.checked(root, parent === '.' ? '' : parent);
+        if (!parentPath.exists) return;
+        const siblings = await readdir(parentPath.absolute);
+        const matches = siblings.filter(value => value.toLowerCase() === components[index - 1].toLowerCase());
+        if (matches.some(value => value !== components[index - 1])) {
+          for (const match of matches) {
+            const actual = parent === '.' ? match : `${parent}/${match}`;
+            await removable(root, actual);
+          }
+          return;
+        }
+        if (!inspected.exists) return;
+        if (index === components.length) {
+          if (oldPaths.has(`${root}:${prefix}`)) return;
+          await removable(root, prefix); return;
+        }
+        if (!inspected.info.isDirectory()) { await removable(root, prefix); return; }
+      }
+    };
+    const removable = async (root, relative) => {
+      const inspected = await this.checked(root, relative);
+      if (!inspected.exists) return;
+      if (inspected.info.isFile() && removedKeys.has(`${root}:${relative}`)) return;
+      if (inspected.info.isDirectory()) {
+        const entries = await readdir(inspected.absolute);
+        // Empty untracked directories are not permission to remove user resources.
+        const tracked = removed.some(file => file.root === root && file.relative.startsWith(`${relative}/`));
+        if (tracked) { for (const entry of entries) await removable(root, `${relative}/${entry}`); return; }
+      }
+      throw failure('local-changed', 'A native target is obstructed by an untracked resource.');
+    };
+    for (const file of newPaths.values()) await checkTarget(file.root, file.relative);
     for (const key of changes) {
-      const oldAsset = previous.get(key); const newAsset = desired.get(key); const origin = (newAsset ?? oldAsset).origin;
-      const oldFiles = oldAsset ? resourcePaths(oldAsset) : new Map(); const newFiles = newAsset ? resourcePaths(newAsset) : new Map();
-      for (const relative of new Set([...oldFiles.keys(), ...newFiles.keys()])) await this.assertFile(origin.root, relative, oldFiles.get(relative));
+      const oldAsset = previous.get(key); const newAsset = desired.get(key);
       if (oldAsset?.type === 'skill' && !newAsset) await this.assertTrackedSkill(oldAsset);
     }
-    for (const key of changes) {
-      const oldAsset = previous.get(key); const newAsset = desired.get(key); const origin = (newAsset ?? oldAsset).origin;
-      const oldFiles = oldAsset ? resourcePaths(oldAsset) : new Map(); const newFiles = newAsset ? resourcePaths(newAsset) : new Map();
-      const paths = [...new Set([...oldFiles.keys(), ...newFiles.keys()])].sort((a, b) => {
-        const marker = `${origin.path}/SKILL.md`; if (a === marker) return 1; if (b === marker) return -1;
-        return b.split('/').length - a.split('/').length || a.localeCompare(b, 'en');
-      });
-      for (const relative of paths) {
-        const oldBytes = oldFiles.get(relative); const newBytes = newFiles.get(relative);
-        if (oldBytes && newBytes && oldBytes.equals(newBytes)) continue;
-        if (newBytes !== undefined) await this.atomicWrite(origin.root, relative, newBytes, oldBytes);
-        else {
-          await this.assertFile(origin.root, relative, oldBytes);
-          if (oldAsset?.type === 'skill' && !newAsset && relative === `${origin.path}/SKILL.md`) await this.assertTrackedSkill(oldAsset, { 'SKILL.md': oldAsset.files['SKILL.md'] });
-          const target = await this.checked(origin.root, relative, true); await unlink(target.absolute); await this.removeEmptyParents(origin.root, relative);
-        }
-      }
+    const recovery = {};
+    const order = (a, b) => {
+      const markerA = a.relative.endsWith('/SKILL.md'); const markerB = b.relative.endsWith('/SKILL.md');
+      return Number(markerA) - Number(markerB) || b.relative.split('/').length - a.relative.split('/').length || a.relative.localeCompare(b.relative, 'en');
+    };
+    // Remove obsolete tracked files first, deepest first, so legal file/directory
+    // transitions and case-only renames no longer obstruct incoming resources.
+    for (const file of removed.sort(order)) {
+      const oldAsset = [...previous.values()].find(asset => asset.origin.root === file.root && asset.type === 'skill' && `${asset.origin.path}/SKILL.md` === file.relative);
+      if (oldAsset && !desired.has(nativeOriginKey(oldAsset.origin))) await this.assertTrackedSkill(oldAsset, { 'SKILL.md': oldAsset.files['SKILL.md'] });
+      await this.retainTarget(file.root, file.relative, file.bytes, recovery);
+      await this.removeEmptyParents(file.root, file.relative);
+    }
+    for (const file of [...newPaths.values()].sort(order)) {
+      const old = oldPaths.get(`${file.root}:${file.relative}`);
+      if (old && old.bytes.equals(file.bytes)) continue;
+      await this.atomicWrite(file.root, file.relative, file.bytes, old?.bytes, recovery);
     }
     await this.assertSnapshot(desired, input);
     return { changed: changes.length };

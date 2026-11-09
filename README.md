@@ -30,7 +30,7 @@ Tested on DSH `0.2.2-rc.1`. Nearby versions may be compatible, but compatibility
 
 - **Local files remain plaintext.** Cloud encryption does not protect a compromised Host, local working files, or instructions already loaded into a conversation.
 - **Microsoft access is broader than the sync folder.** Delegated `Files.ReadWrite` permission is limited to that folder by plugin behavior, not by Microsoft's permission boundary. Login tokens use DSH credentials, whose default file-backed provider is not an OS keychain.
-- **Keep recovery material safe.** Without a usable trusted device, passphrase, or recovery key, an encrypted vault cannot be recovered. Changing the passphrase does not revoke devices that already hold the master key.
+- **Keep recovery material safe.** Without a usable trusted device, passphrase, or recovery key, an encrypted vault cannot be recovered. Changing the passphrase does not revoke devices that already hold the master key. If an encryption change succeeds in OneDrive but local completion fails, save the new key shown with that warning; the cloud change is not rolled back. Repair local access or storage, then refresh and sync.
 - **Exclusions are device-local.** Confirming an exclusion preserves this device's original but removes its current cloud copy. Other devices may apply that deletion or re-upload the file; cloud history may retain older copies.
 - **Use an independent backup.** Multi-file updates are not filesystem transactions. File permissions, including POSIX executable bits, are not synchronized. Review synchronized instructions and scripts before using them.
 
