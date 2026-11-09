@@ -4,7 +4,7 @@ const ROOT_NAME = 'DSH Sync';
 const encode = value => encodeURIComponent(value);
 const pointer = /^head-([0-9a-f-]{36})\.json$/i;
 export class OneDrive {
-  constructor({ auth, fetchImpl = fetch }) { this.auth = auth; this.fetch = fetchImpl; this.folder = null; this.marker = null; this.driveId = null; this.warning = null; }
+  constructor({ auth, fetchImpl = fetch }) { this.auth = auth; this.fetch = fetchImpl; this.folder = null; this.marker = null; this.driveId = null; this.warning = null; this.snapshotCache = null; }
   async request(resource, options = {}) {
     invariant(resource.startsWith('/me/drive'), 'Invalid Graph resource.');
     let response;
@@ -77,20 +77,32 @@ export class OneDrive {
     }catch(error){if(error.status!==404)throw error;this.marker=null;}
     return {driveId:this.driveId,folderId:this.folder.id,marker:this.marker};
   }
-  async read() {
-    const connected=await this.connect(); if(!connected.marker)return null;
-    for(let attempt=0;attempt<2;attempt++){
-      const head=await this.json(this.item(this.marker.headItemId));
-      invariant(head.file && head.parentReference?.id===this.folder.id,'The vault head is outside the sync folder.');
-      const match=pointer.exec(head.name??''); invariant(match && UUID.test(match[1]) && typeof head.eTag==='string','The vault head is malformed.');
-      const revision=match[1];
-      try {
-        const snapshot=await this.child(`snapshot-${revision}.json`); invariant(snapshot.file,'The snapshot is not a file.');
-        const envelope=await this.content(snapshot.id);
-        invariant(envelope?.format===1 && envelope.vaultId===this.marker.vaultId && envelope.revision===revision,'Snapshot identity does not match the published vault head.');
-        return {revision,etag:head.eTag,envelope};
-      }catch(error){if(error.status!==404 || attempt===1)throw error;}
-    }
+  /** Recheck publication metadata and announce only an uncached snapshot download. */
+  async read({onDownload=()=>{}}={}) {
+    try {
+      const connected=await this.connect();
+      if(!connected.marker){this.snapshotCache=null;return null;}
+      const marker=connected.marker;
+      for(let attempt=0;attempt<2;attempt++){
+        const head=await this.json(this.item(marker.headItemId));
+        invariant(head.file && head.parentReference?.id===connected.folderId,'The vault head is outside the sync folder.');
+        const match=pointer.exec(head.name??''); invariant(match && UUID.test(match[1]) && typeof head.eTag==='string','The vault head is malformed.');
+        const revision=match[1];
+        try {
+          const snapshot=await this.child(`snapshot-${revision}.json`); invariant(snapshot.file,'The snapshot is not a file.');
+          const cacheable=typeof snapshot.id==='string' && typeof snapshot.eTag==='string';
+          const key=JSON.stringify([connected.driveId,connected.folderId,marker.headItemId,marker.vaultId,revision,head.eTag,snapshot.id,snapshot.eTag]);
+          if(cacheable && this.snapshotCache?.key===key)return structuredClone(this.snapshotCache.value);
+          this.snapshotCache=null;
+          onDownload();
+          const envelope=await this.content(snapshot.id);
+          invariant(envelope?.format===1 && envelope.vaultId===marker.vaultId && envelope.revision===revision,'Snapshot identity does not match the published vault head.');
+          const value={revision,etag:head.eTag,envelope};
+          if(cacheable)this.snapshotCache={key,value:structuredClone(value)};
+          return value;
+        }catch(error){this.snapshotCache=null;if(error.status!==404 || attempt===1)throw error;}
+      }
+    }catch(error){this.snapshotCache=null;throw error;}
   }
   async init(envelope) {
     invariant(UUID.test(envelope?.vaultId) && UUID.test(envelope?.revision),'Invalid initial snapshot.');
@@ -107,19 +119,23 @@ export class OneDrive {
   async publish(expected,envelope) {
     await this.connect(); invariant(this.marker && envelope.vaultId===this.marker.vaultId && UUID.test(envelope.revision),'Invalid vault publication.');
     invariant(typeof expected?.etag==='string' && UUID.test(expected.revision),'Publication requires the previously read version.');
-    await this.upload(`snapshot-${envelope.revision}.json`,envelope);
+    const candidate=structuredClone(envelope);
+    const identity=[this.driveId,this.folder.id,this.marker.headItemId,this.marker.vaultId];
+    const snapshot=await this.upload(`snapshot-${candidate.revision}.json`,candidate);
+    this.snapshotCache=null;
     try {
-      await this.json(this.item(this.marker.headItemId),{method:'PATCH',headers:{'Content-Type':'application/json','If-Match':expected.etag},body:JSON.stringify({name:`head-${envelope.revision}.json`})});
+      const head=await this.json(this.item(identity[2]),{method:'PATCH',headers:{'Content-Type':'application/json','If-Match':expected.etag},body:JSON.stringify({name:`head-${candidate.revision}.json`})});
+      if(typeof head?.eTag==='string' && typeof snapshot?.id==='string' && typeof snapshot.eTag==='string')this.snapshotCache={key:JSON.stringify([...identity,candidate.revision,head.eTag,snapshot.id,snapshot.eTag]),value:{revision:candidate.revision,etag:head.eTag,envelope:structuredClone(candidate)}};
     }catch(error){
       if(error.status===412)throw error;
       const observed=await this.read().catch(()=>null);
-      if(observed?.revision!==envelope.revision)throw Object.assign(new Error('OneDrive publication could not be confirmed. Retry synchronization; local changes are preserved.'),{code:'publication-unknown'});
+      if(observed?.revision!==candidate.revision)throw Object.assign(new Error('OneDrive publication could not be confirmed. Retry synchronization; local changes are preserved.'),{code:'publication-unknown'});
     }
     // Only retire the known predecessor, never another device's uncommitted candidate.
-    if(expected.revision!==envelope.revision){
+    if(expected.revision!==candidate.revision){
       try {const old=await this.child(`snapshot-${expected.revision}.json`);await this.request(this.item(old.id),{method:'DELETE'});}
       catch(error){if(error.status!==404)this.warning='The previous cloud snapshot could not be retired. It may still contain plaintext.';}
     }
-    return {revision:envelope.revision,etag:null,envelope};
+    return {revision:candidate.revision,etag:null,envelope:structuredClone(candidate)};
   }
 }

@@ -98,10 +98,13 @@ export class SyncEngine {
   }
   async synchronize(decisions = {}) {
     return this.store.exclusive(async () => {
-      this.phase = 'syncing'; this.error = null; this.onChange();
+      const transferring = () => {
+        if (this.phase === 'syncing') return;
+        this.phase = 'syncing'; this.error = null; this.onChange();
+      };
       try {
         const state = await this.store.read(); invariant(state.vaultId, 'Initialize or join a vault first.', 'not-initialized');
-        const remote = await this.backend.read(); this.assertRemote(state, remote);
+        const remote = await this.backend.read({ onDownload: transferring }); this.assertRemote(state, remote);
         let remoteAssets;
         if (remote.envelope.mode === 'encrypted' && remote.envelope.keyring?.id !== state.keyring?.id) {
           // A new passphrase wrapper does not revoke an already trusted master key.
@@ -117,9 +120,12 @@ export class SyncEngine {
         if (result.conflicts.length) { this.phase = 'conflict'; return { conflicts: result.conflicts }; }
         await this.backupDiscarded(state, result.discarded);
         if (hash(hashes(result.published)) !== hash(hashes(remoteAssets))) {
-          await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: state.keyring, key: this.key }));
+          const envelope = encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: state.keyring, key: this.key });
+          transferring();
+          await this.backend.publish(remote, envelope);
         }
-        await this.finish(state, result); this.phase = 'synced'; this.conflicts = [];
+        if (hash(hashes(result.assets)) !== hash(hashes(result.plan.local))) transferring();
+        await this.finish(state, result); this.phase = 'synced'; this.error = null; this.conflicts = [];
         return { synced: true, assetCount: state.assets.length };
       } catch (error) { this.phase = error.code === 'locked' ? 'locked' : 'error'; this.error = { code: error.code ?? 'sync-failed', message: error.message }; throw error; }
       finally { this.onChange(); }

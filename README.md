@@ -26,6 +26,14 @@ Tested on DSH `0.2.2-rc.1`. Nearby versions may be compatible, but compatibility
 4. If using encryption, choose a passphrase of at least 12 characters and save the one-time recovery key separately from this device and OneDrive. On an existing encrypted vault, unlock once to establish automatic unlock on supported Windows devices.
 5. Edit files normally and wait for **Synced** before switching devices. **View** opens the original file in the Host's registered application.
 
+## Sidebar status
+
+A live status entry above the sidebar's **More** / account launcher checks status every three seconds while the page is visible. Hover or focus it for an explanation. It distinguishes syncing, conflicts, locked vaults, inventory warnings, loading, connection failures, required sign-in/setup, paused sync, pending changes, and errors rather than reporting them as synced. Windows desktop hides the entry when the sidebar is collapsed.
+
+Periodic difference checks compare local files and recheck OneDrive marker, head, and snapshot metadata without changing the visible status or showing a syncing spinner for unchanged snapshots. Downloading a new revision, publishing changes, or applying cloud changes locally reports syncing; errors, conflicts, and locked vaults still surface.
+
+Clicking opens a plugin-owned dialog with the same full sync controls as **Settings → DSH Sync**; opening it does not trigger synchronization. The dialog is separate because DSH `0.2.2-rc.1` has no public navigation API for opening a specific settings section.
+
 ## Safety and limits
 
 - **Local files remain plaintext.** Cloud encryption does not protect a compromised Host, local working files, or instructions already loaded into a conversation.

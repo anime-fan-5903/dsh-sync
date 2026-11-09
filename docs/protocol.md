@@ -28,6 +28,12 @@ A lost publication response is resolved by rereading the head and checking the p
 
 The approach depends on real Graph metadata precondition behavior and must be tested on personal and organizational accounts. Mock tests establish adapter behavior, not Microsoft service conformance. No JSON batch or multi-file transaction is assumed.
 
+## Runtime OneDrive reader
+
+The transport retains at most one identity-checked snapshot in memory, keyed by drive, folder, head item, vault, revision, head `eTag`, and snapshot item ID and `eTag`. Every read revalidates the marker, head, and snapshot metadata before reusing that snapshot; a new or changed snapshot is downloaded and checked for the expected format, vault, and revision. Missing snapshot `eTag` disables cache reuse. Encrypted payload authentication remains the sync engine's responsibility when decoding the snapshot, not the transport cache's. Metadata failures are reported, never hidden by a cached fallback. This cache adds no durable storage and changes no protocol format.
+
+Periodic checks compare local files and remote metadata while retaining the current visible status for unchanged snapshots. Downloading a new revision, actual publication, and local application report syncing; errors, conflicts, and locked vaults remain visible.
+
 ## Snapshot envelope
 
 Every snapshot carries `format`, `vaultId`, `revision`, `mode`, and `data`. Plain mode contains the validated asset payload directly. Encrypted mode includes a keyring and an authenticated encrypted payload. The payload contains only `assets`.

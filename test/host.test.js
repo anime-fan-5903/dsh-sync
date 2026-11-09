@@ -58,6 +58,27 @@ test('Host UI and agent operations share state, enforce UI-only authority, and d
     assert.equal(response.status, 200, 'The browser status GET must pass through the HTTP bridge without a request body.');
     assert.match(response.headers.get('content-type'), /application\/json/);
     assert.equal((await response.json()).value.initialized, false);
+    const summaryResponse = await fetch(`${bridge.url}?view=summary`);
+    assert.equal(summaryResponse.status, 200);
+    assert.equal(summaryResponse.headers.get('cache-control'), 'no-store');
+    assert.equal(summaryResponse.headers.get('x-content-type-options'), 'nosniff');
+    const summary = (await summaryResponse.json()).value;
+    assert.equal(summary.initialized, false); assert.equal(summary.signedIn, false);
+    assert.deepEqual(Object.keys(summary).sort(), ['phase','error','signedIn','auth','initialized','encrypted','locked','lastSync','settings','conflictCount','tracking','deviceTrust'].sort());
+    assert.deepEqual(summary.settings, { enabled: false });
+    assert.deepEqual(summary.auth, { pending: false, error: null });
+    assert.deepEqual(summary.deviceTrust, { error: null });
+    assert.equal(summary.conflictCount, 0); assert.equal(typeof summary.tracking.issueCount, 'number');
+    const unrecognizedView = await fetch(`${bridge.url}?view=unknown`);
+    assert.ok(Array.isArray((await unrecognizedView.json()).value.assets), 'Unknown views preserve the existing full GET.');
+    const failingSummary = t.mock.method(Application.prototype, 'summary', async () => { throw Object.assign(new Error('SECRET diagnostic with native path'), { code: 'SECRET' }); });
+    try {
+      const failure = await fetch(`${bridge.url}?view=summary`);
+      assert.equal(failure.status, 400);
+      assert.deepEqual(await failure.json(), { ok: false, error: { code: 'status-unavailable' } });
+      const full = await fetch(bridge.url);
+      assert.equal((await full.json()).ok, true, 'Full GET does not use the summary reader.');
+    } finally { failingSummary.mock.restore(); }
     const post = await fetch(bridge.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'asset-open', id: 'missing-fixture' }) });
     assert.equal(post.status, 400);
     assert.equal((await post.json()).ok, false);

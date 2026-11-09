@@ -19,8 +19,9 @@ export async function apply(ctx, config = {}) {
     path: '/api/dsh-sync', methods: ['GET','POST'], requestBody: 'buffered',
     fetch: async request => {
       const respond = (value, status = 200) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+      const summary = request.method === 'GET' && new URL(request.url).searchParams.get('view') === 'summary';
       try {
-        if (request.method === 'GET') return respond({ ok: true, value: await app.operation('status') });
+        if (request.method === 'GET') return respond({ ok: true, value: summary ? await app.summary() : await app.operation('status') });
         invariant(request.headers.get('content-type')?.split(';')[0] === 'application/json', 'Use application/json.', 'bad-content-type');
         invariant(Number(request.headers.get('content-length') ?? 0) <= MAX_BYTES * 2, 'Request is too large.');
         const reader = request.body?.getReader(); invariant(reader, 'A JSON request body is required.');
@@ -30,7 +31,7 @@ export async function apply(ctx, config = {}) {
         const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
         invariant(body && typeof body.action === 'string', 'An action is required.');
         return respond({ ok: true, value: await app.operation(body.action, body, 'user') });
-      } catch (error) { return respond({ ok: false, error: { code: error.code ?? 'operation-failed', message: error.message } }, 400); }
+      } catch (error) { return respond({ ok: false, error: summary ? { code: 'status-unavailable' } : { code: error.code ?? 'operation-failed', message: error.message } }, 400); }
     },
   }));
   ctx.effect(() => ctx.tools.register({

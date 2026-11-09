@@ -23,6 +23,50 @@ async function harness(t,protector=fixtureProtector()) {
 const digest=key=>createHash('sha256').update(key).digest('hex');
 const passphrase='A long lifecycle fixture passphrase';
 
+test('sidebar summary reads only metadata and strips error messages and native details', async () => {
+  const app = new Application({ directory: 'summary-fixture', roots: { dsh: path.join(os.tmpdir(), 'dsh-sync-summary-fixture') }, credentials: {} });
+  const state = { vaultId: 'fixture-vault', encrypted: true, keyring: { id: 'fixture-keyring' },
+    lastSync: '2026-01-01T00:00:00.000Z', settings: { enabled: true, clientId: 'PRIVATE client ID' } };
+  for (const name of ['assets', 'backups']) Object.defineProperty(state, name, { get() { throw new Error(`Summary must not inspect ${name}.`); } });
+  let reads = 0;
+  app.store.read = async () => { reads++; return state; };
+  app.engine = { phase: 'conflict', error: { code: 'network-failed', message: 'PRIVATE diagnostic' },
+    key: Buffer.from('fixture-key'), unlockedKeyring: 'fixture-keyring', conflicts: [{ name: 'PRIVATE conflict' }],
+    status() { throw new Error('Summary must not build full engine status or hashes.'); } };
+  app.auth = { signedIn: async () => true, status: () => ({ pending: true, error: { code: 'reauth-required', message: 'PRIVATE auth diagnostic' } }) };
+  app.tracking.inventory.issues = [{ origin: { path: 'PRIVATE native path' }, message: 'PRIVATE issue' }];
+  app.tracking.status = () => { throw new Error('Summary must not build tracking details.'); };
+  app.deviceTrust.error = { code: 'device-protection-failed', message: 'PRIVATE device diagnostic' };
+  const summary = await app.summary();
+  assert.equal(reads, 1);
+  assert.deepEqual(summary, { phase: 'conflict', error: { code: 'network-failed' }, signedIn: true,
+    auth: { pending: true, error: { code: 'reauth-required' } }, initialized: true, encrypted: true, locked: false,
+    lastSync: state.lastSync, settings: { enabled: true }, conflictCount: 1, tracking: { issueCount: 1 },
+    deviceTrust: { error: { code: 'device-protection-failed' } } });
+  assert.ok(!JSON.stringify(summary).includes('PRIVATE'));
+  for (const code of ['PRIVATE/path', 'x'.repeat(81), undefined, 123]) {
+    app.engine.error = { code, message: 'PRIVATE diagnostic' };
+    assert.deepEqual((await app.summary()).error, { code: 'operation-failed' });
+  }
+  app.deviceError = { code: 'device-cache-failed', message: 'PRIVATE override' };
+  assert.deepEqual((await app.summary()).deviceTrust.error, { code: 'device-cache-failed' });
+  app.engine.error = null; app.auth = { signedIn: async () => false, status: () => ({ pending: false, error: null }) };
+  app.deviceError = null; app.deviceTrust.error = null; app.engine.conflicts = [];
+  for (const phase of ['idle', 'pending', 'syncing', 'synced', 'locked', 'error']) {
+    app.engine.phase = phase; app.engine.key = null;
+    const value = await app.summary();
+    assert.equal(value.phase, phase); assert.equal(value.locked, true);
+    assert.equal(value.error, null); assert.equal(value.auth.error, null); assert.equal(value.deviceTrust.error, null);
+  }
+  app.engine.key = Buffer.from('fixture-key'); app.engine.unlockedKeyring = 'stale-keyring';
+  assert.equal((await app.summary()).locked, true);
+  state.encrypted = false; state.vaultId = null; state.settings.enabled = false; state.lastSync = null;
+  const uninitialized = await app.summary();
+  assert.equal(uninitialized.locked, false); assert.equal(uninitialized.initialized, false);
+  assert.equal(uninitialized.signedIn, false); assert.equal(uninitialized.settings.enabled, false);
+  assert.equal(uninitialized.lastSync, null);
+});
+
 test('ordinary restart restores the protected device key; manual lock survives until explicit unlock',async t=>{
   const h=await harness(t);let app=await h.create();const setup=await app.operation('initialize',{encrypted:true,passphrase});assert.ok(setup.recoveryKey);
   const fingerprint=digest(app.engine.key);assert.equal((await app.status()).deviceTrust.hasSavedKey,true);

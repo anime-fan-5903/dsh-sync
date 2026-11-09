@@ -20,7 +20,7 @@ function deferred() {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
-function harness(initialLanguage = 'en') {
+function harness(initialLanguage = 'en', componentProps = {}) {
   let definition, component, dictionary, cursor = 0, refCursor = 0, effectCursor = 0, effects = [];
   const dictionaries = {}, localeListeners = new Set(), disposers = [];
   let localeSnapshot = { revision: 1, active: initialLanguage }, localeNotifications = 0;
@@ -107,7 +107,10 @@ function harness(initialLanguage = 'en') {
     },
   });
   assert.equal(definition.id, 'dsh-sync');
-  const plugin = definition.factory(name => { assert.equal(name, 'react'); return React; });
+  const plugin = definition.factory(name => {
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return { Tooltip: 'tooltip' };
+    assert.equal(name, 'react'); return React;
+  });
   assert.deepEqual(Array.from(plugin.inject), ['slots','locale','remote','remote.session']);
   plugin.apply({
     remote,
@@ -123,14 +126,15 @@ function harness(initialLanguage = 'en') {
       getSnapshot: () => localeSnapshot,
     },
     slots: {
-      inject(name, fn) { assert.equal(name, 'settings.section'); fn(); return () => {}; },
+      inject(name, fn) { assert.ok(['settings.section', 'sidebar.footer.action'].includes(name)); return fn(); },
       register(options, view) {
-        assert.equal(options.id, 'dsh-sync'); assert.equal(options.order, 25); assert.equal(options.label(), 'DSH Sync');
-        component = view; return () => {};
+        assert.equal(options.id, 'dsh-sync'); assert.equal(options.order, 25);
+        if (options.name === 'settings.section') { assert.equal(options.label(), 'DSH Sync'); component = view; }
+        return () => {};
       },
     },
   });
-  const render = () => { cursor = 0; refCursor = 0; effectCursor = 0; effects = []; return component(); };
+  const render = () => { cursor = 0; refCursor = 0; effectCursor = 0; effects = []; return component(componentProps); };
   const commit = () => { const tree = render(); for (const effect of effects) effect(); return tree; };
   const button = label => {
     const found = flatten(render()).find(node => node.type === 'button' && node.children.includes(label));
@@ -721,3 +725,40 @@ for (const [action, label, status] of [
     });
   }
 }
+
+test('standalone settings protects pending key issuance and one-time recovery acknowledgement', async () => {
+  let closed = 0, changed = 0;
+  const closeRequest = { current: null };
+  const app = harness('en', { closeRequest, onClose: () => { closed++; }, onStatusChange: () => { changed++; } });
+  await app.mount();
+  app.click(english.sidebarClose); assert.equal(closed, 1);
+  const pending = deferred(); app.replies.push(() => pending.promise);
+  app.states[state.passphrase] = 'A long fixture passphrase'; app.states[state.confirmation] = 'A long fixture passphrase';
+  app.click(english.enableEncryption); closeRequest.current();
+  assert.equal(closed, 1); assert.equal(app.button(english.sidebarClose).props.disabled, true);
+  let prevented = false;
+  app.events.get('beforeunload')({ preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  pending.resolve(app.success({ synced: true })); await flush(); app.commit();
+  assert.equal(changed, 1);
+  app.states[state.recovery] = 'FIXTURE-DO-NOT-DISCARD'; app.commit();
+  closeRequest.current(); assert.equal(closed, 1);
+  assert.equal(app.button(english.sidebarClose).props.disabled, true);
+  app.states[state.savedRecovery] = true;
+  app.click(english.recoveryConfirm); app.commit();
+  app.click(english.sidebarClose); assert.equal(closed, 2);
+  app.unmount(); assert.equal(closeRequest.current, null);
+});
+
+test('a stalled ordinary sync does not trap the user in the standalone dialog', async () => {
+  let closed = 0;
+  const closeRequest = { current: null }, pending = deferred();
+  const app = harness('en', { closeRequest, onClose: () => { closed++; } });
+  await app.mount(); app.replies.push(() => pending.promise);
+  app.click(english.sync); assert.equal(app.button(english.sidebarClose).props.disabled, false);
+  app.click(english.sidebarClose); assert.equal(closed, 1);
+  const post = app.calls.find(call => call.options.method === 'POST');
+  app.unmount(); assert.equal(post.options.signal.aborted, true);
+  pending.resolve(app.success({ synced: true })); await flush();
+  assert.equal(closed, 1); assert.equal(closeRequest.current, null);
+});

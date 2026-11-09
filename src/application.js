@@ -54,6 +54,19 @@ export class Application {
       dataDirectory: this.directory, tracking: this.tracking.status(), localAtRest: 'plaintext',
       deviceTrust: { ...trust, ...(this.deviceError ? { error: this.deviceError } : {}) } };
   }
+  /** Return sidebar status without asset hashes, inventory details, or diagnostic messages. */
+  async summary() {
+    invariant(!this.closed, 'DSH Sync is stopping.');
+    const state = await this.store.read();
+    const signedIn = await this.auth.signedIn(); const auth = this.auth.status();
+    const errorCode = error => error ? { code: typeof error.code === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(error.code) ? error.code : 'operation-failed' } : null;
+    return { phase: this.engine.phase, error: errorCode(this.engine.error), signedIn,
+      auth: { pending: auth.pending, error: errorCode(auth.error) }, initialized: !!state.vaultId,
+      encrypted: state.encrypted, locked: state.encrypted && (!this.engine.key || this.engine.unlockedKeyring !== state.keyring?.id),
+      lastSync: state.lastSync, settings: { enabled: state.settings.enabled }, conflictCount: this.engine.conflicts.length,
+      tracking: { issueCount: this.tracking.inventory.issues.length },
+      deviceTrust: { error: errorCode(this.deviceError ?? this.deviceTrust.error) } };
+  }
   async tick() {
     if (this.closed || this.running) return;
     if (!this.discovering && Date.now() >= this.nextDiscovery) {

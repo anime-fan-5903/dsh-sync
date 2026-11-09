@@ -2,6 +2,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-sync',
   factory(require) {
     const React = require('react');
+    const { Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives');
     const h = React.createElement;
     // BEGIN GENERATED LOCALES
     const dictionaries = {
@@ -43,6 +44,31 @@ window.__ModuleLoader__.load({
     "recoverySaved": "I have saved this key somewhere safe and understand I need it if I forget my passphrase.",
     "recoveryConfirm": "I have saved the key — continue",
     "recoveryLeave": "Save your recovery key before leaving this page.",
+    "sidebarLoading": "Checking sync status…",
+    "sidebarUnavailable": "Connection failed",
+    "sidebarSignedOut": "Sign-in required",
+    "sidebarSetup": "Setup required",
+    "sidebarPaused": "Sync paused",
+    "sidebarPending": "Changes pending",
+    "sidebarError": "Sync needs attention",
+    "sidebarIssues": "Asset inventory needs attention",
+    "sidebarOpen": "Open DSH Sync",
+    "sidebarClose": "Close DSH Sync",
+    "sidebarLastSync": "Last successful sync",
+    "sidebarNever": "Not yet synced",
+    "sidebarHelpSynced": "The last sync completed successfully. Open DSH Sync to review its status.",
+    "sidebarHelpSyncing": "Synchronization is in progress. Wait for it to finish before switching devices.",
+    "sidebarHelpConflict": "Conflicting versions need your choice. Open DSH Sync to review and resolve them.",
+    "sidebarHelpLocked": "The encrypted vault is locked. Open DSH Sync to unlock it.",
+    "sidebarHelpUnavailable": "Sync could not be checked or completed. Check the Host and OneDrive connections, then open DSH Sync to retry.",
+    "sidebarHelpIdle": "Waiting for the next sync check. Open DSH Sync to check now.",
+    "sidebarHelpSignedOut": "A Microsoft connection is required. Open DSH Sync to sign in or renew authorization.",
+    "sidebarHelpSetup": "No sync vault is configured. Open DSH Sync to initialize or join one.",
+    "sidebarHelpPaused": "Automatic sync is off. Open DSH Sync to enable it or sync manually.",
+    "sidebarHelpPending": "Changes are waiting to sync. Open DSH Sync to review them or sync now.",
+    "sidebarHelpError": "Synchronization could not complete. Open DSH Sync to review the error before retrying.",
+    "sidebarHelpIssues": "Some native assets could not be inventoried safely. Open DSH Sync to review the inventory warnings.",
+    "sidebarHelpLoading": "Waiting for the Host to report sync status. Open DSH Sync if the check does not finish.",
     "overview": "Sync status",
     "phase": "Status",
     "lastSync": "Last successful sync",
@@ -236,6 +262,31 @@ window.__ModuleLoader__.load({
     "recoverySaved": "我已将此密钥保存在安全的地方，并了解忘记口令时需要使用它。",
     "recoveryConfirm": "我已保存密钥，继续",
     "recoveryLeave": "离开此页面前，请先保存恢复密钥。",
+    "sidebarLoading": "正在检查同步状态…",
+    "sidebarUnavailable": "连接失败",
+    "sidebarSignedOut": "需要登录",
+    "sidebarSetup": "需要设置",
+    "sidebarPaused": "同步已暂停",
+    "sidebarPending": "有更改待同步",
+    "sidebarError": "同步需要处理",
+    "sidebarIssues": "资产清单需要处理",
+    "sidebarOpen": "打开 DSH Sync",
+    "sidebarClose": "关闭 DSH Sync",
+    "sidebarLastSync": "上次成功同步",
+    "sidebarNever": "尚未同步",
+    "sidebarHelpSynced": "上次同步已成功完成。打开 DSH Sync 可查看状态。",
+    "sidebarHelpSyncing": "正在同步。请等待完成后再切换设备。",
+    "sidebarHelpConflict": "存在需要选择版本的冲突。请打开 DSH Sync 查看并解决。",
+    "sidebarHelpLocked": "加密保险库已锁定。请打开 DSH Sync 解锁。",
+    "sidebarHelpUnavailable": "无法检查或完成同步。请检查 Host 和 OneDrive 连接，然后打开 DSH Sync 重试。",
+    "sidebarHelpIdle": "正在等待下一次同步检查。打开 DSH Sync 可立即检查。",
+    "sidebarHelpSignedOut": "需要连接 Microsoft 账户。请打开 DSH Sync 登录或重新授权。",
+    "sidebarHelpSetup": "尚未配置同步保险库。请打开 DSH Sync 初始化或加入保险库。",
+    "sidebarHelpPaused": "自动同步已关闭。请打开 DSH Sync 启用自动同步或手动同步。",
+    "sidebarHelpPending": "有更改正在等待同步。打开 DSH Sync 可查看或立即同步。",
+    "sidebarHelpError": "同步未能完成。请打开 DSH Sync 查看错误后再重试。",
+    "sidebarHelpIssues": "部分原生资产无法安全地列入清单。请打开 DSH Sync 查看清单警告。",
+    "sidebarHelpLoading": "正在等待 Host 返回同步状态。如检查迟迟未完成，请打开 DSH Sync。",
     "overview": "同步状态",
     "phase": "状态",
     "lastSync": "上次成功同步",
@@ -429,6 +480,31 @@ window.__ModuleLoader__.load({
     "recoverySaved": "このキーを安全な場所に保存しました。パスフレーズを忘れた場合に必要であることを理解しています。",
     "recoveryConfirm": "キーを保存しました — 続行",
     "recoveryLeave": "このページを離れる前に、回復キーを保存してください。",
+    "sidebarLoading": "同期状態を確認中…",
+    "sidebarUnavailable": "接続に失敗しました",
+    "sidebarSignedOut": "サインインが必要です",
+    "sidebarSetup": "セットアップが必要です",
+    "sidebarPaused": "同期を一時停止中",
+    "sidebarPending": "未同期の変更があります",
+    "sidebarError": "同期の確認が必要です",
+    "sidebarIssues": "アセット一覧の確認が必要です",
+    "sidebarOpen": "DSH Sync を開く",
+    "sidebarClose": "DSH Sync を閉じる",
+    "sidebarLastSync": "前回の同期成功",
+    "sidebarNever": "まだ同期していません",
+    "sidebarHelpSynced": "前回の同期は正常に完了しました。DSH Sync を開くと状態を確認できます。",
+    "sidebarHelpSyncing": "同期を実行中です。完了してからデバイスを切り替えてください。",
+    "sidebarHelpConflict": "競合するバージョンの選択が必要です。DSH Sync を開いて確認し、解決してください。",
+    "sidebarHelpLocked": "暗号化された保管庫はロック中です。DSH Sync を開いてロックを解除してください。",
+    "sidebarHelpUnavailable": "同期の確認または完了に失敗しました。Host と OneDrive への接続を確認し、DSH Sync を開いて再試行してください。",
+    "sidebarHelpIdle": "次の同期確認を待っています。DSH Sync を開くと今すぐ確認できます。",
+    "sidebarHelpSignedOut": "Microsoft アカウントへの接続が必要です。DSH Sync を開いてサインインするか、再認証してください。",
+    "sidebarHelpSetup": "同期用の保管庫が未設定です。DSH Sync を開いて初期化するか、既存の保管庫に参加してください。",
+    "sidebarHelpPaused": "自動同期は無効です。DSH Sync を開いて有効にするか、手動で同期してください。",
+    "sidebarHelpPending": "変更は同期待ちです。DSH Sync を開くと確認や手動同期ができます。",
+    "sidebarHelpError": "同期を完了できませんでした。DSH Sync を開いてエラーを確認してから再試行してください。",
+    "sidebarHelpIssues": "一部のネイティブアセットを安全に一覧化できませんでした。DSH Sync を開いて一覧の警告を確認してください。",
+    "sidebarHelpLoading": "Host からの同期状態の応答を待っています。確認が終わらない場合は DSH Sync を開いてください。",
     "overview": "同期状態",
     "phase": "状態",
     "lastSync": "前回の同期成功",
@@ -618,7 +694,122 @@ window.__ModuleLoader__.load({
           ctx.effect(() => ctx.locale.register('dsh-sync', language, dictionary));
         }
         const t = ctx.locale.bind('dsh-sync');
-        function SyncSettings() {
+        const sidebarStyles = `
+.dsh-sync-sidebar{width:100%;color:var(--dsw-alias-label-primary);font:inherit}
+.dsh-sync-sidebar-button{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;text-align:start;cursor:pointer}
+.dsh-sync-sidebar-button:hover{background:var(--dsw-alias-bg-layer-2)}.dsh-sync-sidebar-button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
+.dsh-sync-sidebar-button[data-wide=false]{justify-content:center;padding:8px}.dsh-sync-sidebar-glyph{display:inline-flex;flex-shrink:0;color:var(--dsw-alias-label-secondary)}
+.dsh-sync-sidebar-button[data-tone=success] .dsh-sync-sidebar-glyph{color:var(--dsw-alias-state-success-primary)}
+.dsh-sync-sidebar-button[data-tone=warning] .dsh-sync-sidebar-glyph{color:var(--dsw-alias-state-warn-primary)}
+.dsh-sync-sidebar-button[data-tone=error] .dsh-sync-sidebar-glyph{color:var(--dsw-alias-state-error-primary)}
+.dsh-sync-sidebar-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsh-sync-sidebar-spin{animation:ds-sync-spin 1.2s linear infinite}
+@keyframes ds-sync-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.dsh-sync-sidebar-spin{animation:none}}
+.dsh-sync-sidebar-dialog{box-sizing:border-box;width:min(1000px,calc(100vw - 32px));max-height:calc(100dvh - 32px);margin:auto;padding:16px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}
+.dsh-sync-sidebar-dialog::backdrop{background:color-mix(in srgb,var(--dsw-alias-label-primary) 35%,transparent)}
+.dsh-sync .ds-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.dsh-sync .ds-settings-heading h2{margin:0}
+@media(max-width:560px){.dsh-sync-sidebar-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:8px}}
+`;
+        function validSummary(value) {
+          const validError = error => error === null || (error && typeof error.code === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(error.code));
+          return value && validError(value.error) && typeof value.auth?.pending === 'boolean' && validError(value.auth.error) &&
+            validError(value.deviceTrust?.error) && ['idle', 'syncing', 'synced', 'pending', 'conflict', 'locked', 'error'].includes(value.phase) &&
+            ['signedIn', 'initialized', 'encrypted', 'locked'].every(key => typeof value[key] === 'boolean') &&
+            typeof value.settings?.enabled === 'boolean' && Number.isInteger(value.conflictCount) && value.conflictCount >= 0 &&
+            Number.isInteger(value.tracking?.issueCount) && value.tracking.issueCount >= 0 &&
+            (value.lastSync === null || (typeof value.lastSync === 'string' && Number.isFinite(Date.parse(value.lastSync))));
+        }
+        function sidebarState(value, unavailable) {
+          if (unavailable) return ['sidebarUnavailable', 'sidebarHelpUnavailable', 'unavailable', 'error'];
+          if (!value) return ['sidebarLoading', 'sidebarHelpLoading', 'loading', 'neutral'];
+          if (value.phase === 'syncing') return ['phaseSyncing', 'sidebarHelpSyncing', 'syncing', 'neutral'];
+          if (value.conflictCount || value.phase === 'conflict') return ['phaseConflict', 'sidebarHelpConflict', 'conflict', 'warning'];
+          if (!value.signedIn) return ['sidebarSignedOut', 'sidebarHelpSignedOut', 'locked', 'warning'];
+          if (!value.initialized) return ['sidebarSetup', 'sidebarHelpSetup', 'pending', 'neutral'];
+          if (value.locked) return ['phaseLocked', 'sidebarHelpLocked', 'locked', 'warning'];
+          const code = value.error?.code || value.auth?.error?.code;
+          if (code === 'reauth-required' || code === 'authorization-failed') return ['sidebarSignedOut', 'sidebarHelpSignedOut', 'locked', 'warning'];
+          if (code === 'network-failed') return ['sidebarUnavailable', 'sidebarHelpUnavailable', 'unavailable', 'error'];
+          if (value.phase === 'error' || code || value.deviceTrust?.error) return ['sidebarError', 'sidebarHelpError', 'error', 'error'];
+          if (value.tracking.issueCount) return ['sidebarIssues', 'sidebarHelpIssues', 'error', 'warning'];
+          if (!value.settings.enabled) return ['sidebarPaused', 'sidebarHelpPaused', 'paused', 'neutral'];
+          if (value.phase === 'idle') return ['phaseIdle', 'sidebarHelpIdle', 'pending', 'neutral'];
+          if (value.phase === 'pending' || !value.lastSync) return ['sidebarPending', 'sidebarHelpPending', 'pending', 'neutral'];
+          if (value.phase === 'synced') return ['phaseSynced', 'sidebarHelpSynced', 'synced', 'success'];
+          return ['sidebarError', 'sidebarHelpError', 'error', 'warning'];
+        }
+        function SidebarStatus({ wide }) {
+          const locale = React.useSyncExternalStore(callback => ctx.locale.subscribe(callback), () => ctx.locale.getSnapshot(), () => ctx.locale.getSnapshot());
+          const [summary, setSummary] = React.useState(null);
+          const [unavailable, setUnavailable] = React.useState(false);
+          const [open, setOpen] = React.useState(false);
+          const dialog = React.useRef(null);
+          const closeRequest = React.useRef(null);
+          const refreshRequest = React.useRef(null);
+          React.useEffect(() => {
+            let active = true;
+            let request = null;
+            async function refresh() {
+              if (!active || document.hidden || request) return;
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 10000);
+              request = { controller, timeout };
+              try {
+                const response = await fetch('/api/dsh-sync?view=summary', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal });
+                const data = await response.json();
+                if (!response.ok || data?.ok !== true || !validSummary(data.value)) throw new Error('Invalid sync summary.');
+                if (active && !controller.signal.aborted) { setSummary(data.value); setUnavailable(false); }
+                else if (active) { setSummary(null); setUnavailable(true); }
+              } catch {
+                if (active) { setSummary(null); setUnavailable(true); }
+              } finally { clearTimeout(timeout); if (request?.controller === controller) request = null; }
+            }
+            refreshRequest.current = refresh;
+            refresh();
+            const timer = setInterval(refresh, 3000);
+            const visible = () => { if (!document.hidden) refresh(); };
+            window.addEventListener('focus', visible);
+            document.addEventListener('visibilitychange', visible);
+            return () => {
+              active = false; clearInterval(timer);
+              if (request) { clearTimeout(request.timeout); request.controller.abort(); }
+              refreshRequest.current = null;
+              window.removeEventListener('focus', visible);
+              document.removeEventListener('visibilitychange', visible);
+            };
+          }, []);
+          React.useEffect(() => {
+            const element = dialog.current;
+            if (!open || !element) return;
+            if (!element.open) element.showModal();
+            return () => { if (element.open) element.close(); };
+          }, [open]);
+          const [labelKey, helpKey, icon, tone] = sidebarState(summary, unavailable);
+          const label = t(labelKey);
+          const date = summary?.lastSync ? new Date(summary.lastSync).toLocaleString(locale.active === 'zh' ? 'zh-CN' : locale.active) : t('sidebarNever');
+          const explanation = `${t('title')}: ${label}. ${t(helpKey)}${summary ? ` ${t('sidebarLastSync')}: ${date}.` : ''}`;
+          const paths = {
+            synced: 'M5 12l4 4L19 6', syncing: 'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1',
+            locked: 'M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5zM12 14v3',
+            conflict: 'M12 3L2 21h20L12 3zM12 9v5M12 17v1', error: 'M12 3L2 21h20L12 3zM12 9v5M12 17v1',
+            unavailable: 'M3 3l18 18M6 17H5a4 4 0 0 1-1-8M9 5a6 6 0 0 1 9 4 4 4 0 0 1 3 6M10 17h6',
+            pending: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7v5l3 2',
+            paused: 'M8 5v14M16 5v14', loading: 'M12 3a9 9 0 1 1-9 9',
+          };
+          return h(React.Fragment, null, h('style', null, sidebarStyles),
+            h('div', { className: 'dsh-sync-sidebar' },
+              h(Tooltip, { label: explanation, side: 'top', delayMs: 400, portal: true },
+                h('button', { type: 'button', className: 'dsh-sync-sidebar-button', 'data-wide': wide, 'data-tone': tone,
+                  'aria-label': `${t('sidebarOpen')}: ${label}`, 'aria-description': explanation, 'aria-haspopup': 'dialog', 'aria-expanded': open,
+                  onClick: () => { setOpen(true); refreshRequest.current?.(); } },
+                  h('span', { className: 'dsh-sync-sidebar-glyph', 'aria-hidden': true },
+                    h('svg', { width: wide ? 16 : 18, height: wide ? 16 : 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8,
+                      strokeLinecap: 'round', strokeLinejoin: 'round', className: ['syncing', 'loading'].includes(icon) ? 'dsh-sync-sidebar-spin' : undefined }, h('path', { d: paths[icon] }))),
+                  wide && h('span', { className: 'dsh-sync-sidebar-label', role: 'status', 'aria-live': 'polite' }, label)))),
+            open && h('dialog', { ref: dialog, className: 'dsh-sync-sidebar-dialog', 'aria-label': t('title'),
+              onCancel: event => { if (event.target !== event.currentTarget) return; event.preventDefault(); closeRequest.current?.(); } },
+              h(SyncSettings, { closeRequest, onClose: () => { setOpen(false); refreshRequest.current?.(); }, onStatusChange: () => refreshRequest.current?.() })));
+        }
+        function SyncSettings({ onClose, closeRequest, onStatusChange } = {}) {
           const locale = React.useSyncExternalStore(callback => ctx.locale.subscribe(callback), () => ctx.locale.getSnapshot(), () => ctx.locale.getSnapshot());
           const [status, setStatus] = React.useState(null);
           const [error, setError] = React.useState('');
@@ -640,11 +831,17 @@ window.__ModuleLoader__.load({
           const trackingDialog = React.useRef(null);
           const mounted = React.useRef(false);
           const busy = React.useRef(false);
+          const recoveryOperation = React.useRef(false);
           const fetching = React.useRef(false);
           const controllers = React.useRef(new Set());
           const version = React.useRef(0);
           const recoveryRef = React.useRef('');
           recoveryRef.current = recovery;
+          React.useEffect(() => {
+            if (!closeRequest) return;
+            closeRequest.current = () => { if (!recoveryRef.current && (!busy.current || !recoveryOperation.current)) onClose(); };
+            return () => { closeRequest.current = null; };
+          }, [closeRequest, onClose]);
           const safeError = (value, secrets = []) => {
             const key = `error_${value?.code}`;
             const known = Object.hasOwn(dictionaries.en, key);
@@ -706,7 +903,7 @@ window.__ModuleLoader__.load({
             window.addEventListener('focus', focus);
             document.addEventListener('visibilitychange', visibility);
             const beforeUnload = event => {
-              if (recoveryRef.current) { event.preventDefault(); event.returnValue = ''; }
+              if (recoveryRef.current || (busy.current && recoveryOperation.current)) { event.preventDefault(); event.returnValue = ''; }
             };
             window.addEventListener('beforeunload', beforeUnload);
             return () => {
@@ -751,7 +948,9 @@ window.__ModuleLoader__.load({
           }
           async function run(action, payload = {}, after) {
             if (busy.current || recoveryRef.current) return;
-            busy.current = true; version.current += 1;
+            busy.current = true;
+            recoveryOperation.current = ['initialize', 'enable-encryption', 'change-passphrase'].includes(action);
+            version.current += 1;
             setPending(true); setError(''); setNotice('');
             try {
               const result = await request(action, payload);
@@ -767,8 +966,8 @@ window.__ModuleLoader__.load({
             } catch (failure) {
               if (mounted.current && failure.name !== 'AbortError') setError(captureError(failure, [payload.passphrase, payload.secret]));
             } finally {
-              busy.current = false;
-              if (mounted.current) { setPending(false); refresh(); }
+              busy.current = false; recoveryOperation.current = false;
+              if (mounted.current) { setPending(false); refresh(); onStatusChange?.(); }
             }
           }
           const disabled = pending || !!recovery;
@@ -854,7 +1053,9 @@ window.__ModuleLoader__.load({
           const phaseName = phase => t({ idle: 'phaseIdle', syncing: 'phaseSyncing', synced: 'phaseSynced', pending: 'phasePending', conflict: 'phaseConflict', locked: 'phaseLocked', error: 'phaseError' }[phase] || 'phaseUnknown');
           const date = value => value ? new Date(value).toLocaleString(locale.active === 'zh' ? 'zh-CN' : locale.active) : t('never');
           return h('div', { className: 'dsh-sync', 'aria-busy': pending },
-            h('style', null, styles), h('h2', null, t('title')), text('subtitle'),
+            h('style', null, styles),
+            h('div', { className: 'ds-settings-heading' }, h('h2', null, t('title')),
+              onClose && h('button', { type: 'button', disabled: !!recovery || (pending && recoveryOperation.current), onClick: () => closeRequest.current?.() }, t('sidebarClose'))), text('subtitle'),
             (error || loadError) && h('p', { role: 'alert', className: 'ds-error' }, safeError(error || loadError)),
             notice && h('p', { role: 'status', className: 'ds-success' }, t(notice)),
             pending && h('p', { role: 'status', className: 'ds-muted' }, t('busy')),
@@ -954,6 +1155,9 @@ window.__ModuleLoader__.load({
         ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section', id: 'dsh-sync', order: 25, label: () => t('title'),
         }, SyncSettings)));
+        ctx.effect(() => ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+          name: 'sidebar.footer.action', id: 'dsh-sync', order: 25,
+        }, SidebarStatus)));
       },
     };
   },
