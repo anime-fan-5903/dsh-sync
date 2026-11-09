@@ -1,0 +1,20 @@
+{
+  "name": "dsh-sync",
+  "version": "0.1.0",
+  "license": "GPL-3.0-only",
+  "description": "Synchronize native DSH instructions and user Skills across devices with a Microsoft account and optional cloud encryption.",
+  "type": "module",
+  "engines": { "node": ">=22", "dsh": ">=0.2.2-rc.1 <0.3.0" },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.js", "client.js", "src/", "locale/", "icon.svg", "cordis.patch.yml", "README.md", "README.zh-CN.md", "README.ja.md", "LICENSE", "docs/", "AGENTS.md", "CONTRIBUTING.md", "scripts/", "test/"],
+  "scripts": { "test": "node --test", "check": "node scripts/check.mjs", "locales": "node scripts/locales.mjs" },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "immediately": true, "inject": ["@deepseek-ai/dsh-client-ui-settings", "@deepseek-ai/dsh-api-session-controller"] }
+  }
+}

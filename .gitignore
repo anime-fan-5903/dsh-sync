@@ -1,0 +1,9 @@
+node_modules/
+coverage/
+*.tgz
+.env
+.env.*
+!.env.example
+_local/
+_cache/
+*.log

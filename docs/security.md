@@ -1,0 +1,63 @@
+# Security model
+
+## Protected data
+
+When cloud encryption is enabled, OneDrive receives an authenticated encrypted asset snapshot, wrapped keys, and limited public protocol metadata. The storage provider can still observe account identity, directory names, object sizes, timing, and traffic. Plain mode intentionally permits the provider and anyone with file access to read asset content.
+
+A private storage account is not a substitute for encryption. Conversely, encryption is a user choice rather than a mandatory prerequisite for synchronization.
+
+## Trust boundaries
+
+The DSH Host is the encryption endpoint. A remote browser does not move that endpoint to the browser's device. Native working files, Skill resources, and the currently unlocked master key are accessible to the Host and potentially to other software running as the same user. The plugin does not encrypt local working files at rest.
+
+Microsoft tokens are stored through the configured DSH credentials provider. The standard local provider uses a private file and is not an OS keychain. No token, plaintext master key, passphrase, recovery key, or signed download URL should be logged, included in an agent tool result, or uploaded as an asset. User-selected asset content can contain secrets; the plugin cannot reliably classify every secret embedded in prose or resources.
+
+Trusted-device automatic unlock uses a separate operating-system-protected master-key cache, not a plaintext record in the credentials provider. That cache grants the trusted Host continuing cloud decryption capability; it does not strengthen the confidentiality of local plaintext files.
+
+## Microsoft authorization
+
+The application is a native public client using authorization code with PKCE, one-use state, and a loopback callback. The client ID is public. No client secret is distributed. Root-directory access requires delegated `Files.ReadWrite`; this permission is broader than the dedicated folder. The application limits its own operations but cannot change the scope Microsoft grants.
+
+Login, unlock, device-trust preferences, encryption changes, native exclusions, and additional-root participation require user actions in Settings. Agent tools can inspect permitted tracking/status metadata and perform supported synchronization and backup operations, but cannot approve those grants or bypass their confirmations.
+
+## Trusted-device automatic unlock
+
+On a supported Windows Host, remembering unlock is enabled by default and protects the master key using CurrentUser DPAPI. An existing encrypted vault requires one successful manual unlock to establish its local cache. Ordinary shutdown wipes the running key from memory without recording a manual lock, allowing a later restart to restore a valid protected key.
+
+Manual lock records its persistent flag and removes the active saved blob before completing. The running key is wiped even if saving the lock fails; a persistence warning must be respected because older disk data may remain. Disabling remembering removes the saved key without forcing the current session to lock. Sign-out removes automatic-unlock capability. Restarting does not bypass a successfully persisted manual lock.
+
+The local `device-trust.json` is outside the discovery whitelist and is never synchronized. Its protected payload contains a vault-bound master key, not a passphrase or recovery key. The Windows PowerShell helper receives key/payload bytes through private stdin, returns binary output, and has bounded execution/output; command arguments contain only a static encoded program. Unsupported protection, corruption, or decryption failure remains manual-unlock only, with no plaintext fallback and no secret-bearing diagnostic output.
+
+DPAPI is user-account protection, not a hardware guarantee or defense against software running as the same user. A protected cache is not a replacement for recovery material and is not a portable enrollment file. See [trusted-device behavior](device-trust.md) for lifecycle, failure handling, and limits.
+
+## Key recovery and revocation
+
+Keep the recovery key separately from synced files and the device. There is no service-operated password reset. A recovery key can unlock the current master key, allowing a new passphrase and recovery key to be issued. Every newly issued recovery key is presented immediately in a native modal dialog above the settings scroll container. The dialog explains one-time display and recovery consequences, blocks Escape dismissal and underlying-page interaction, and requires explicit safe-storage acknowledgement before confirmation. Copying does not count as acknowledgement. Recovery-key display is transient browser component state and is not returned through agent operations.
+
+Once confirmed or the page is destroyed, the same recovery key cannot be displayed again. Closing or terminating the application can still destroy transient state; a before-unload warning is not a guarantee against forced termination. A device that can still unlock the vault can issue a replacement through the passphrase-change flow; the old recovery key is replaced in current vault metadata. Do not rely on a device cache surviving operating-system or account recovery.
+
+A passphrase change does not revoke a device holding a usable master key. When wrapping metadata changes, the engine checks an existing key against authenticated current cloud data and retains it if valid. An invalid master key clears its local cache and locks the device. Revoking cloud authorization cannot erase previously downloaded data, and removing one local cache does not revoke other devices. Full device revocation and master-key rotation are separate capabilities outside the current design.
+
+## Encryption enablement
+
+Enabling encryption affects newly published state and future protocol-compliant publications. Earlier plaintext may remain in snapshots, OneDrive version history, recycle bins, backups, and other devices. Users needing confidentiality from the outset should initialize with encryption enabled.
+
+The encrypted format detects unauthorized modifications and object substitution. It does not guarantee global freshness against a malicious provider replaying an old valid encrypted snapshot, especially on a new device without a trusted freshness anchor. Plain mode has neither cryptographic authenticity nor rollback protection against a malicious storage account.
+
+## Native files and cross-application effects
+
+Native DSH-home instructions and user Skills are discovered from a narrow whitelist and materialized at original relative paths. Native instructions become available through DSH's normal filesystem loaders; there is no separate library-activation switch. Previously loaded conversation context is not retroactively rewritten. `.agents` is off by default, is not accessed while disabled, and requires a separate user acknowledgement before participation because files may belong to other applications. Differing existing files require a conflict choice. Disabling a root preserves its existing local and cloud content.
+
+Exclusions are local policy, stored with their metadata outside the discovery whitelist. Excluding requires explicit consent before deleting the current cloud asset and never removes that device's original file. Pending deletion waits for successful authorized/unlocked synchronization. This is not global exclusion or historical erasure: other devices may apply a deletion or re-upload the item, and storage history can retain earlier data. Excluded records and root grants are never serialized into asset envelopes. See [native tracking](native-assets.md).
+
+Native writes validate logical targets and content limits before mutation, do not follow links/junctions, check for concurrent edits, and avoid recursive removal of unknown files. Resource filtering is not a general secret detector; users remain responsible for instruction bodies and resource contents.
+
+## Asset and installation safety
+
+Synchronized instructions and Skill resources do not authorize automatic plugin installation, package build scripts, compatibility exemptions, or local security-setting changes. Review instructions and scripts before using or invoking them.
+
+Resource paths reject traversal, nonportable components, and symbolic links. The plugin excludes common dependency, Git, and environment-file locations but cannot promise a generic secret scanner.
+
+## Reporting vulnerabilities
+
+Until a public repository and disclosure channel are established, report security concerns privately to the maintainer. Do not include real tokens, account data, or recovery material in public reports.

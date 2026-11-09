@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>DSH Sync</title>
+  <rect x="3" y="3" width="58" height="58" rx="16" fill="#163b62"/>
+  <path d="M18 39a10 10 0 0 1-1-20 15 15 0 0 1 28-1 11 11 0 0 1 2 21" stroke="#e2f4ff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21 43h22m-6-6 6 6-6 6M43 53H21m6-6-6 6 6 6" stroke="#64e1d1" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
