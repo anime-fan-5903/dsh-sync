@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { OneDrive } from '../src/onedrive.js';
 import { encodeEnvelope } from '../src/crypto.js';
+import { controlAsset } from '../src/preference-records.js';
 function graph(){
   const items=new Map();let serial=0;let losePatch=false;const calls=[];
   const error=(status,code)=>Response.json({error:{code}},{status});
@@ -69,6 +70,30 @@ function replaceHead(remote,backend,value,{etag=randomUUID()}={}){
   return item;
 }
 function deferred(){let resolve;const promise=new Promise(yes=>{resolve=yes;});return {promise,resolve};}
+
+test('transport reads snapshot formats 1 through 3 while retaining the format-1 marker', async () => {
+  for (const format of [1, 2, 3]) {
+    const remote = graph(), backend = new OneDrive({ auth, fetchImpl: remote.fetchImpl });
+    const snapshot = encodeEnvelope({ vaultId: randomUUID(), assets: format === 3 ? [controlAsset(false)] : [], format });
+    await backend.init(snapshot);
+    const reader = new OneDrive({ auth, fetchImpl: remote.fetchImpl });
+    assert.deepEqual((await reader.read()).envelope, snapshot);
+    const marker = [...remote.items.values()].find(item => item.name === 'vault.json');
+    assert.equal(marker.content.format, 1);
+  }
+});
+
+test('unknown snapshot versions invalidate the transport cache without publishing', async () => {
+  const remote = graph(), backend = new OneDrive({ auth, fetchImpl: remote.fetchImpl });
+  const initial = await backend.init(envelope());
+  const unknown = { ...envelope(initial.envelope.vaultId), format: 4 };
+  replaceHead(remote, backend, unknown); remote.calls.length = 0;
+  await assert.rejects(backend.read(), /Snapshot identity/);
+  assert.equal(backend.snapshotCache, null); assert.equal(remote.calls.some(call => call.method === 'PATCH'), false);
+  const supported = encodeEnvelope({ vaultId: initial.envelope.vaultId, assets: [controlAsset(true)] });
+  replaceHead(remote, backend, supported);
+  assert.deepEqual((await backend.read()).envelope, supported);
+});
 
 test('repeated verified reads recheck marker, head, and snapshot metadata but skip snapshot bytes and download callbacks',async()=>{
   const remote=graph(),backend=new OneDrive({auth,fetchImpl:remote.fetchImpl});const initial=await backend.init(envelope());

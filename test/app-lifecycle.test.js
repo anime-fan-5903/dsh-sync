@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { randomBytes, createCipheriv, createDecipheriv, createHash } from 'node:crypto';
 import { Application } from '../src/application.js';
+import { isPreferenceRecord } from '../src/preference-records.js';
 import { decodeEnvelope, unlockKeyring, wipe } from '../src/crypto.js';
 
 function fixtureProtector() {
@@ -147,7 +148,8 @@ for (const action of ['enable-encryption', 'change-passphrase']) {
       assert.equal(result.error.code, failure === 'state-write' ? 'encryption-local-failed' : 'device-cache-failed');
       const remote = h.cloud.remote.envelope;
       const recovered = await unlockKeyring(remote.vaultId, remote.keyring, result.recoveryKey, 'recovery');
-      assert.deepEqual(decodeEnvelope(remote, recovered), []); wipe(recovered);
+      const decoded = decodeEnvelope(remote, recovered);
+      assert.deepEqual(decoded.filter(asset => !isPreferenceRecord(asset)), []); assert.equal(decoded.length, 2); assert.equal(remote.format, 3); wipe(recovered);
       for (const caller of ['agent']) await assert.rejects(app.operation(action, { passphrase }, caller), { code: 'user-only' });
       assert.ok(!JSON.stringify(await app.status()).includes(result.recoveryKey));
     });

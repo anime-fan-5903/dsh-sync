@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, createCipheriv, createDecipheriv, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
 import { invariant, canonical, UUID, validateAssets, MAX_BYTES } from './model.js';
+import { snapshotFormat } from './preference-records.js';
 const scrypt = promisify(scryptCallback);
 const KDF = Object.freeze({ algorithm: 'scrypt', N: 131072, r: 8, p: 1 });
 const context = (...parts) => Buffer.from(['dsh-sync', '1', ...parts].join(':'));
@@ -53,17 +54,17 @@ export async function unlockKeyring(vaultId, keyring, secret, method = 'passphra
   } catch { throw Object.assign(new Error('Unable to unlock. Check your passphrase or recovery key.'), { code: 'unlock-failed' }); }
   finally { wrapping?.fill(0); }
 }
-export function encodeEnvelope({ vaultId, revision = randomUUID(), assets, keyring = null, key = null, format = assets.some(asset => !asset.origin) ? 2 : 1 }) {
+export function encodeEnvelope({ vaultId, revision = randomUUID(), assets, keyring = null, key = null, format = snapshotFormat(assets) }) {
   invariant(UUID.test(vaultId) && UUID.test(revision), 'Invalid snapshot identity.'); validateAssets(assets);
-  invariant([1, 2].includes(format) && (format === 2 || assets.every(asset => asset.origin)), 'Unsupported snapshot format.');
+  invariant([1, 2, 3].includes(format) && format >= snapshotFormat(assets), 'Unsupported snapshot format.');
   const payload = { assets };
   if (!keyring) return { format, vaultId, revision, mode: 'plain', data: payload };
   invariant(key?.length === 32 && UUID.test(keyring.id), 'Unlock the vault before encryption.', 'locked');
   return { format, vaultId, revision, mode: 'encrypted', keyring,
-    data: seal(Buffer.from(canonical(payload)), key, context(vaultId, revision, keyring.id, format === 1 ? 'snapshot' : 'snapshot-v2')) };
+    data: seal(Buffer.from(canonical(payload)), key, context(vaultId, revision, keyring.id, format === 1 ? 'snapshot' : `snapshot-v${format}`)) };
 }
 export function decodeEnvelope(envelope, key = null) {
-  invariant([1, 2].includes(envelope?.format) && UUID.test(envelope.vaultId) && UUID.test(envelope.revision), 'Unsupported snapshot format.');
+  invariant([1, 2, 3].includes(envelope?.format) && UUID.test(envelope.vaultId) && UUID.test(envelope.revision), 'Unsupported snapshot format.');
   invariant(Buffer.byteLength(JSON.stringify(envelope)) <= MAX_BYTES * 2, 'Snapshot is too large.');
   let payload;
   if (envelope.mode === 'plain') {
@@ -71,12 +72,12 @@ export function decodeEnvelope(envelope, key = null) {
   } else {
     invariant(envelope.mode === 'encrypted' && UUID.test(envelope.keyring?.id), 'Invalid snapshot encryption.');
     invariant(key?.length === 32, 'Unlock the vault to continue.', 'locked');
-    try { payload = JSON.parse(open(envelope.data, key, context(envelope.vaultId, envelope.revision, envelope.keyring.id, envelope.format === 1 ? 'snapshot' : 'snapshot-v2')).toString('utf8')); }
+    try { payload = JSON.parse(open(envelope.data, key, context(envelope.vaultId, envelope.revision, envelope.keyring.id, envelope.format === 1 ? 'snapshot' : `snapshot-v${envelope.format}`)).toString('utf8')); }
     catch { throw Object.assign(new Error('Snapshot authentication failed.'), { code: 'authentication-failed' }); }
   }
   invariant(payload && Object.keys(payload).length === 1, 'Invalid snapshot payload.');
   validateAssets(payload.assets);
-  invariant(envelope.format === 2 || payload.assets.every(asset => asset.origin), 'Extended assets require snapshot format 2.');
+  invariant(envelope.format >= snapshotFormat(payload.assets), 'Assets require a newer snapshot format.');
   return payload.assets;
 }
 export function wipe(key) { key?.fill(0); }

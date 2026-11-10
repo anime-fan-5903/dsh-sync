@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { hash, hashes, merge, invariant, validateAssets } from './model.js';
+import { snapshotFormat, isPreferenceRecord } from './preference-records.js';
 import { createKeyring, unlockKeyring, encodeEnvelope, decodeEnvelope, wipe } from './crypto.js';
 
 export class SyncEngine {
@@ -38,8 +39,8 @@ export class SyncEngine {
       this.lock(); this.key = key; this.unlockedKeyring = state.keyring.id; this.onChange(); return { unlocked: true };
     });
   }
-  async reconcile(state, remoteAssets, decisions = {}) {
-    const plan = this.native ? await this.native.prepare(state, remoteAssets)
+  async reconcile(state, remoteAssets, decisions = {}, options = {}) {
+    const plan = this.native ? await this.native.prepare(state, remoteAssets, decisions, options)
       : { base: state.base, local: state.assets, remote: remoteAssets, passthrough: [] };
     // Persist freshly observed files before network publication. The baseline is deliberately unchanged.
     await this.store.write(state);
@@ -49,18 +50,20 @@ export class SyncEngine {
     return { ...result, plan, published };
   }
   async backupDiscarded(state, discarded) {
-    const backups = discarded.map(item => ({ id: randomUUID(), createdAt: new Date().toISOString(), side: item.side,
+    const backups = discarded.filter(item => !isPreferenceRecord(item.asset)).map(item => ({ id: randomUUID(), createdAt: new Date().toISOString(), side: item.side,
       origin: item.asset.origin, type: item.asset.type, name: item.asset.name,
       envelope: encodeEnvelope({ vaultId: state.vaultId, assets: [item.asset], keyring: state.keyring, key: this.key }) }));
-    if (backups.length) { state.backups = [...backups, ...state.backups].slice(0,10); await this.store.write(state); }
+    const retained = state.backups.filter(backup => !isPreferenceRecord(backup));
+    if (backups.length || retained.length !== state.backups.length) { state.backups = [...backups, ...retained].slice(0,10); await this.store.write(state); }
   }
   async finish(state, result) {
     // Recheck the real working files after publication. A concurrent editor must never be overwritten.
     // On any failure the persisted baseline stays old, so the next attempt detects the intervening edit.
     if (this.native) await this.native.apply(result.plan, result.assets);
-    state.assets = result.assets; state.base = hashes(result.assets); state.lastSync = new Date().toISOString();
+    state.assets = [...(result.plan.retained ?? []), ...result.assets]; state.base = { ...(result.plan.retainedBase ?? {}), ...hashes(result.assets) };
+    if (!result.plan.preferencesOnly) state.lastSync = new Date().toISOString();
     await this.store.write(state);
-    if (this.native) await this.native.committed(state, result.published);
+    if (this.native) await this.native.committed(state, result.published, result.plan);
     this.onChange();
   }
   async initialize({ encrypted = false, passphrase } = {}) {
@@ -83,12 +86,12 @@ export class SyncEngine {
       Object.assign(state, { vaultId, encrypted, keyring: setup?.keyring ?? null, assets: result.assets,
         base: hashes(result.assets), snapshotFormat: envelope.format, lastSync: new Date().toISOString() });
       // Initialization only uploads a snapshot; it does not replace working files.
-      await this.store.write(state); if (this.native) await this.native.committed(state, result.published); this.onChange();
+      await this.store.write(state); if (this.native) await this.native.committed(state, result.published, result.plan); this.onChange();
       return { initialized: true, encrypted, ...(setup ? { recoveryKey: setup.recoveryKey } : {}) };
     });
   }
   async adoptMetadata(state, envelope) {
-    invariant([1, 2].includes(envelope?.format) && ['plain','encrypted'].includes(envelope.mode), 'Unsupported remote vault.');
+    invariant([1, 2, 3].includes(envelope?.format) && ['plain','encrypted'].includes(envelope.mode), 'Unsupported remote vault.');
     state.snapshotFormat = envelope.format;
     state.vaultId = envelope.vaultId; state.encrypted = envelope.mode === 'encrypted'; state.keyring = envelope.keyring ?? null;
     state.base = {}; state.lastSync = null; state.settings.enabled = true; this.lock(); await this.store.write(state); this.onChange();
@@ -97,13 +100,15 @@ export class SyncEngine {
     invariant(remote, 'The remote vault is missing. No data was replaced.', 'remote-missing');
     invariant(remote.envelope.vaultId === state.vaultId, 'The signed-in account contains a different vault. Disconnect before switching vaults.', 'wrong-vault');
   }
-  async synchronize(decisions = {}) {
+  async synchronize(decisions = {}, options = {}) {
     return this.store.exclusive(async () => {
       const transferring = () => {
         if (this.phase === 'syncing') return;
         this.phase = 'syncing'; this.error = null; this.onChange();
       };
       try {
+        const heldConflicts = options.preferencesOnly ? this.conflicts.filter(item => !isPreferenceRecord(item)) : [];
+        const previousPhase = this.phase; const previousError = this.error;
         const state = await this.store.read(); invariant(state.vaultId, 'Initialize or join a vault first.', 'not-initialized');
         const remote = await this.backend.read({ onDownload: transferring }); this.assertRemote(state, remote);
         let remoteAssets;
@@ -117,19 +122,40 @@ export class SyncEngine {
         invariant(!(state.encrypted && remote.envelope.mode === 'plain'), 'Refusing an unexpected plaintext downgrade.', 'encryption-downgrade');
         if (state.encrypted) invariant(this.key && this.unlockedKeyring === state.keyring?.id, 'Unlock the vault to synchronize.', 'locked');
         remoteAssets ??= decodeEnvelope(remote.envelope, this.key);
-        state.snapshotFormat = Math.max(state.snapshotFormat ?? 1, remote.envelope.format, remoteAssets.some(asset => !asset.origin) ? 2 : 1);
-        const result = await this.reconcile(state, remoteAssets, decisions); this.conflicts = result.conflicts;
-        if (result.conflicts.length) { this.phase = 'conflict'; return { conflicts: result.conflicts }; }
+        state.snapshotFormat = snapshotFormat(remoteAssets, Math.max(state.snapshotFormat ?? 1, remote.envelope.format));
+        const result = await this.reconcile(state, remoteAssets, decisions, options); this.conflicts = [...heldConflicts, ...result.conflicts];
+        if (result.conflicts.length) {
+          const priority = result.plan.priority;
+          if (priority) {
+            validateAssets(priority.published);
+            if (hash(hashes(priority.published)) !== hash(hashes(remoteAssets))) {
+              state.snapshotFormat = snapshotFormat(priority.published, state.snapshotFormat ?? 1);
+              transferring();
+              await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: priority.published, keyring: state.keyring, key: this.key, format: state.snapshotFormat }));
+            }
+            await this.native.commitPriority(result.plan, priority.assets);
+            const ids = new Set(priority.assets.map(asset => asset.id));
+            state.assets = [...state.assets.filter(asset => !ids.has(asset.id)), ...priority.assets];
+            Object.assign(state.base, hashes(priority.assets)); await this.store.write(state);
+          }
+          this.phase = 'conflict'; return { conflicts: this.conflicts };
+        }
         await this.backupDiscarded(state, result.discarded);
         if (hash(hashes(result.published)) !== hash(hashes(remoteAssets))) {
-          if (result.published.some(asset => !asset.origin)) state.snapshotFormat = 2;
-          const envelope = encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: state.keyring, key: this.key, format: state.snapshotFormat ?? (result.published.some(asset => !asset.origin) ? 2 : 1) });
+          state.snapshotFormat = snapshotFormat(result.published, state.snapshotFormat ?? 1);
+          const envelope = encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: state.keyring, key: this.key, format: snapshotFormat(result.published, state.snapshotFormat ?? 1) });
           transferring();
           await this.backend.publish(remote, envelope);
         }
         if (hash(hashes(result.assets)) !== hash(hashes(result.plan.local))) transferring();
-        await this.finish(state, result); this.phase = 'synced'; this.error = null; this.conflicts = [];
-        return { synced: true, assetCount: state.assets.length };
+        await this.finish(state, result);
+        this.conflicts = heldConflicts;
+        const preferencePlan = result.plan.preferences;
+        const preferenceChanged = preferencePlan && (hash(preferencePlan.control) !== preferencePlan.before.controlHash ||
+          (preferencePlan.before.valuesHash !== null && hash(preferencePlan.selectedValues) !== preferencePlan.before.valuesHash));
+        this.phase = heldConflicts.length ? 'conflict' : options.preferencesOnly ? (preferenceChanged && state.settings.enabled ? 'pending' : previousPhase) : 'synced';
+        this.error = options.preferencesOnly ? previousError : null;
+        return options.preferencesOnly ? { preferencesChecked: true, ...(heldConflicts.length ? { conflicts: heldConflicts } : {}), assetCount: state.assets.length } : { synced: true, assetCount: state.assets.length };
       } catch (error) { this.phase = error.code === 'locked' ? 'locked' : 'error'; this.error = { code: error.code ?? 'sync-failed', message: error.message }; throw error; }
       finally { this.onChange(); }
     });
@@ -159,8 +185,8 @@ export class SyncEngine {
         // Prepare encrypted backups before the irreversible cloud transition.
         const backups = state.backups.map(backup => ({ ...backup, envelope: encodeEnvelope({ vaultId: state.vaultId,
           assets: decodeEnvelope(backup.envelope), keyring: setup.keyring, key: setup.key }) }));
-        await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: setup.keyring, key: setup.key, format: Math.max(remote.envelope.format, state.snapshotFormat ?? 1, result.published.some(asset => !asset.origin) ? 2 : 1) }));
-        state.snapshotFormat = Math.max(remote.envelope.format, state.snapshotFormat ?? 1, result.published.some(asset => !asset.origin) ? 2 : 1);
+        await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: setup.keyring, key: setup.key, format: snapshotFormat(result.published, Math.max(remote.envelope.format, state.snapshotFormat ?? 1)) }));
+        state.snapshotFormat = snapshotFormat(result.published, Math.max(remote.envelope.format, state.snapshotFormat ?? 1));
         wipe(this.key); this.key = setup.key; this.unlockedKeyring = setup.keyring.id;
         Object.assign(state, { encrypted: true, keyring: setup.keyring, backups });
         return await this.finishEncryption(state, result, setup.recoveryKey, { encrypted: true,
@@ -177,8 +203,8 @@ export class SyncEngine {
       invariant(!result.conflicts.length, 'Resolve conflicts first.', 'conflict'); await this.backupDiscarded(state, result.discarded);
       const setup = await createKeyring(state.vaultId, passphrase, this.key);
       try {
-        await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: setup.keyring, key: setup.key, format: Math.max(remote.envelope.format, state.snapshotFormat ?? 1, result.published.some(asset => !asset.origin) ? 2 : 1) }));
-        state.snapshotFormat = Math.max(remote.envelope.format, state.snapshotFormat ?? 1, result.published.some(asset => !asset.origin) ? 2 : 1);
+        await this.backend.publish(remote, encodeEnvelope({ vaultId: state.vaultId, assets: result.published, keyring: setup.keyring, key: setup.key, format: snapshotFormat(result.published, Math.max(remote.envelope.format, state.snapshotFormat ?? 1)) }));
+        state.snapshotFormat = snapshotFormat(result.published, Math.max(remote.envelope.format, state.snapshotFormat ?? 1));
         const oldKey = this.key; this.key = setup.key; this.unlockedKeyring = setup.keyring.id; wipe(oldKey);
         state.keyring = setup.keyring;
         return await this.finishEncryption(state, result, setup.recoveryKey, { changed: true });
@@ -191,7 +217,7 @@ export class SyncEngine {
       const [asset] = decodeEnvelope(backup.envelope, this.key); let plan;
       if (this.native) {
         invariant(this.native && this.native.isActive(asset), 'Re-include the native item and enable its root before restoring.', 'native-not-tracked');
-        plan = await this.native.prepare(state, []);
+        plan = await this.native.prepare(state, [], {}, { restore: true });
       }
       const current = state.assets.find(a => a.id === asset.id);
       if (current) state.backups.unshift({ id: randomUUID(), createdAt: new Date().toISOString(), side: 'local', origin: current.origin, type: current.type, name: current.name, envelope: encodeEnvelope({ vaultId: state.vaultId, assets: [current], keyring: state.keyring, key: this.key }) });

@@ -96,7 +96,7 @@ export class OneDrive {
           this.snapshotCache=null;
           onDownload();
           const envelope=await this.content(snapshot.id);
-          invariant([1,2].includes(envelope?.format) && envelope.vaultId===marker.vaultId && envelope.revision===revision,'Snapshot identity does not match the published vault head.');
+          invariant([1,2,3].includes(envelope?.format) && envelope.vaultId===marker.vaultId && envelope.revision===revision,'Snapshot identity does not match the published vault head.');
           const value={revision,etag:head.eTag,envelope};
           if(cacheable)this.snapshotCache={key,value:structuredClone(value)};
           return value;

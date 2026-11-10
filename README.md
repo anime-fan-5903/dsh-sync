@@ -23,7 +23,7 @@ Tested on DSH `0.2.2-rc.1`. Nearby versions may be compatible, but compatibility
 
 1. Install the package directory through DSH's plugin manager, restart DSH, and open **Settings → DSH Sync**.
 2. Sign in with Microsoft. If the browser does not open, use **Open Microsoft sign-in**.
-3. Review **Sync targets** and **Sync assets**, confirm any expanded scope, and exclude anything that should stay local. Initialize a new vault or join the existing vault in the same account; do not reinitialize a working vault.
+3. Review **Sync targets** and **Sync assets**, and exclude anything that should stay local. Initialize a new vault or join the existing vault in the same account; do not reinitialize a working vault.
 4. If using encryption, choose a passphrase of at least 12 characters and save the one-time recovery key separately from this device and OneDrive. On an existing encrypted vault, unlock once to establish automatic unlock on supported Windows devices.
 5. Edit files normally and wait for **Synced** before switching devices. **View** opens the original file in the Host's registered application.
 
@@ -33,15 +33,23 @@ Six horizontal tabs organize the controls: **Overview**, **Sync targets**, **Syn
 
 ### Sync targets
 
-Prompts, Skills, and DSH options are enabled by default; model configuration and plugins are off. Plugin manifest synchronization requires explicit opt-in and risk acknowledgement on each device; installation remains a separate local confirmation. The separate `.agents` opt-in remains off by default. Review both **Sync targets** and **Sync assets** before initializing or joining a vault.
+Prompts, Skills, and DSH options are enabled by default; model configuration and plugins are off. Local enabling of models or plugins asks for a risk acknowledgement. Shared preferences can carry those choices to other devices, but plugin installation and model application still require local confirmation. The separate `.agents` opt-in remains off by default.
 
-Target choices and confirmations are device-local policy in `targets.json`, never cloud assets. Upgrading an existing vault requires scope confirmation before DSH options or model configuration participate. Turning a category off preserves local and cloud copies; re-enabling starts from a fresh baseline and checks differences again. This differs from an explicitly confirmed per-file exclusion, which removes the active cloud copy.
+Turning a category off preserves local and cloud copies; re-enabling starts from a fresh baseline and checks differences again. This differs from an explicitly confirmed per-file exclusion, which removes the active cloud copy. The runtime scope-acceptance flag remains local even when target choices are shared.
 
 DSH options use a fixed whitelist: `locale.preference`; `ui-theme` appearance preference and font, code-font, and terminal-font sizes; and `ui-chat` transcript, collapse, folded-reply, and performance-display preferences. Only reviewed user overrides are exported, not a schema dump or arbitrary profile configuration. Credentials, security policies, device paths, and installation permissions stay local.
 
-Model configuration supports a portable subset of `llm-deepseek`, `llm-deepseek-api-key`, and `llm-pi-ai`: supported endpoints, model definitions, and selected inference/transport parameters. API keys, tokens, `apiKeyEnv` credential bindings, and custom headers are excluded. Enabling it requires a risk acknowledgement. **All incoming model changes are staged** for explicit local confirmation tied to their fingerprint, not only endpoint changes. A changed endpoint may send conversations and existing local keys to a different host; encryption does not make that connection safe.
+Model configuration supports a portable subset of `llm-deepseek`, `llm-deepseek-api-key`, and `llm-pi-ai`: supported endpoints, model definitions, and selected inference/transport parameters. API keys, tokens, `apiKeyEnv` credential bindings, and custom headers are excluded. Enabling it locally requires a risk acknowledgement. **All incoming model changes are staged** for explicit local confirmation tied to their fingerprint, not only endpoint changes. A changed endpoint may send conversations and existing local keys to a different host; encryption does not make that connection safe.
 
 Configuration conflicts are resolved per namespace, not per field. Application uses field-level mutations with revision checks to preserve local secrets and unrelated settings. Syncing a model asset does not mean its pending changes have been applied.
+
+### DSH Sync configuration
+
+**DSH Sync configuration sync** (`syncConfig`) is on by default and shared across the whole vault. Its own state always participates in synchronization, independently of the five targets. When off, other DSH Sync preferences are neither uploaded nor applied; local and cloud copies remain. Another device can turn it back on. The off state is processed before its preference payload, and re-enabling compares differing copies again instead of replaying queued local edits over the cloud.
+
+The shared whitelist is the five target flags, automatic asset synchronization, and its interval (`intervalSeconds`, 5–3600 seconds). An unedited new device adopts existing cloud preferences on its first successful unlocked sync, without repeating target checkboxes. Existing or explicitly edited choices use normal conflict resolution. Credentials, unlock caches, device trust, `.agents` permission, exclusions, plugin ignores/results, and installation grants stay local.
+
+Pausing automatic asset synchronization still permits minimum configuration checks while signed in and unlocked. Those checks retain ordinary-asset baselines and cloud copies without uploading local asset changes or applying incoming ordinary assets; signing out or locking still stops access.
 
 Ordinary explanations are available from the **?** buttons beside the relevant options or card headings. Hover or focus for 500 ms to show a help bubble; click or tap to pin it for reading. Click the button again, click outside the bubble, or press Escape to dismiss it. Key warnings remain visible rather than being hidden in help bubbles.
 
@@ -57,7 +65,7 @@ When plugin differences are pending, the lower-left status badge opens a concise
 
 After enabling **Plugins** in **Sync targets** on participating devices, eligible profile-installed registry bundles are discovered and exported automatically, including newly installed packages. Each manifest carries a package name, exact version, and desired enabled state. DSH Sync itself, shipped/core bundles, and local-path, Git, tarball, or alias sources are excluded. Package files, registry URLs, credentials, build-script grants, and compatibility exemptions are not transferred; restoration uses the destination's configured registry.
 
-Background comparison creates the pending list without a manual plan or a settings-page visit. Installable missing packages and exact-version activation changes are selected by default. Review names, versions, sources, and enabled states, then choose **Install and apply selected plugin states** for one explicit local confirmation. It authorizes only the displayed desired and local-state fingerprints; changed choices are rejected. Existing version/source mismatches require manual handling in DSH's plugin manager: there is no automatic upgrade, downgrade, or uninstall.
+Background comparison creates the pending list without a manual plan or a settings-page visit. Installable missing packages and exact-version activation changes are selected by default. Review names, versions, sources, and enabled states, then choose **Confirm and apply selected** for one explicit local confirmation. It authorizes only the displayed desired and local-state fingerprints; changed choices are rejected. Existing version/source mismatches require manual handling in DSH's plugin manager: there is no automatic upgrade, downgrade, or uninstall.
 
 **Later** closes the panel but keeps the badge. Ignoring an item affects only this device and that fingerprint; a new version or local-state change can prompt again. Missing local packages remain in the desired list rather than being published as deletions. The panel reports progress, failures, script blocks, incompatibility, and restart requirements separately from cloud synchronization. Already permitted install scripts may run; new script permissions and compatibility exemptions require separate approval through DSH's plugin manager. Closing the panel does not cancel an already authorized installation.
 

@@ -2,9 +2,10 @@ import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { atomicJson } from './local-store.js';
 import { hash, hashes, invariant, validateAsset } from './model.js';
+import { TARGET_DEFAULTS, CONTROL_ID, PREFERENCES_ID, isPreferenceRecord } from './preference-records.js';
 import { configAsset, projectConfig } from './portable-config.js';
 
-export const TARGET_DEFAULTS = Object.freeze({ prompt: true, skill: true, settings: true, 'model-config': false, plugins: false });
+export { TARGET_DEFAULTS } from './preference-records.js';
 const isNative = asset => asset.type === 'prompt' || asset.type === 'skill';
 const configTypes = ['settings', 'model-config'];
 
@@ -46,13 +47,14 @@ export function modelOps(before, after, user) {
 
 /** Owns device-local category grants and composes native files with portable settings. */
 export class SyncTargets {
-  constructor({ directory, native, settings, plugins }) {
-    this.file = path.join(directory, 'targets.json'); this.native = native; this.settings = settings; this.plugins = plugins;
+  constructor({ directory, native, settings, plugins, preferences }) {
+    this.file = path.join(directory, 'targets.json'); this.native = native; this.settings = settings; this.plugins = plugins; this.preferences = preferences; this.projection = null;
     this.policy = { format: 1, enabled: { ...TARGET_DEFAULTS }, accepted: true, pending: {}, applied: {}, resetTypes: [] };
     this.observed = new Map(); this.available = new Set(); this.issues = [];
     this.sourceChanged = false; this.discoveryChanged = false;
   }
   async start(state) {
+    let existingPolicy = false;
     try {
       const saved = JSON.parse(await readFile(this.file, 'utf8'));
       invariant(saved?.format === 1 && typeof saved.accepted === 'boolean' && saved.pending && typeof saved.pending === 'object' && !Array.isArray(saved.pending), 'Invalid synchronization target policy.');
@@ -63,16 +65,17 @@ export class SyncTargets {
       invariant(saved.resetTypes === undefined || (Array.isArray(saved.resetTypes) && saved.resetTypes.every(type => Object.hasOwn(TARGET_DEFAULTS, type))), 'Invalid target baseline reset.');
       invariant(saved.applied === undefined || (saved.applied && typeof saved.applied === 'object' && !Array.isArray(saved.applied)), 'Invalid applied configuration ledger.');
       for (const entry of Object.values(saved.applied ?? {})) { validateAsset(entry.asset); invariant(configTypes.includes(entry.asset.type) && /^[0-9a-f]{64}$/.test(entry.materialized), 'Invalid applied configuration.'); }
-      this.policy = { ...saved, applied: saved.applied ?? {}, resetTypes: saved.resetTypes ?? [] };
+      this.policy = { ...saved, applied: saved.applied ?? {}, resetTypes: saved.resetTypes ?? [] }; existingPolicy = true;
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       this.policy.accepted = !state.vaultId;
       await this.save();
     }
     this.native.targets = this.policy.enabled;
+    await this.preferences?.start({ legacy: !!state.vaultId || existingPolicy });
   }
   save() { return atomicJson(this.file, this.policy); }
-  enabled(type) { return !!this.policy.enabled[type] && (isNative({ type }) || this.policy.accepted); }
+  enabled(type) { return !!(this.projection?.enabled ?? this.policy.enabled)[type] && (isNative({ type }) || (this.projection?.accepted ?? this.policy.accepted)); }
   isActive(asset) {
     if (isNative(asset)) return this.native.isActive(asset);
     if (asset.type === 'plugins') return this.enabled('plugins') && !!this.plugins?.status().available;
@@ -108,55 +111,117 @@ export class SyncTargets {
     const current = [...this.native.inventory.items.filter(item => this.native.isActive(item)), ...configs];
     const discovery = hash([current, configs]);
     this.discoveryChanged = this.discoveryHash !== discovery || this.native.discoveryChanged; this.discoveryHash = discovery;
-    const savedConfigs = state.assets.filter(asset => !isNative(asset) && this.isActive(asset));
-    this.sourceChanged = this.native.sourceChanged || hash(hashes(configs)) !== hash(hashes(savedConfigs));
+    const localPreferences = this.preferences?.local(state, this.policy.enabled) ?? [];
+    const savedConfigs = state.assets.filter(asset => (!isNative(asset) && this.isActive(asset)) || isPreferenceRecord(asset));
+    this.sourceChanged = this.native.sourceChanged || hash(hashes([...configs, ...localPreferences])) !== hash(hashes(savedConfigs));
     return tracking;
   }
-  async prepare(state, remoteAssets) {
-    const configs = await this.capture();
-    const plan = await this.native.prepare(state, remoteAssets.filter(isNative));
-    const active = asset => !isNative(asset) && this.isActive(asset);
-    const local = [...plan.local, ...configs];
-    const remote = [...plan.remote, ...remoteAssets.filter(active)];
-    const passthrough = [...plan.passthrough, ...remoteAssets.filter(asset => !isNative(asset) && !active(asset))];
-    const base = { ...plan.base };
-    for (const asset of [...configs, ...remote.filter(asset => asset.type === 'plugins')]) {
-      if (!this.policy.resetTypes.includes(asset.type) && Object.hasOwn(state.base, asset.id)) base[asset.id] = state.base[asset.id];
+  async withPreferences(preferences, operation) {
+    const previous = this.projection;
+    this.projection = preferences?.selectedValues ? { enabled: preferences.selectedValues.targets, accepted: this.policy.accepted || preferences.remotePreferences } : null;
+    this.native.targets = this.projection?.enabled ?? this.policy.enabled;
+    try { return await operation(); }
+    finally { this.projection = previous; this.native.targets = previous?.enabled ?? this.policy.enabled; }
+  }
+  async prepare(state, remoteAssets, decisions = {}, options = {}) {
+    let beforeValues;
+    const preferences = this.preferences && !options.restore ? this.preferences.plan(state, remoteAssets,
+      () => { beforeValues = this.preferences.localValues(state, this.policy.enabled); return beforeValues; }, decisions) : null;
+    const specials = preferences?.local ?? (options.restore ? this.preferences?.local(state, this.policy.enabled) ?? [] : []);
+    const priority = preferences?.control && !preferences.controlConflict ? {
+      assets: [preferences.control], published: [...remoteAssets.filter(asset => asset.id !== CONTROL_ID), preferences.control].sort((a, b) => a.id.localeCompare(b.id)),
+    } : undefined;
+    if (preferences && (preferences.blocked || options.preferencesOnly)) {
+      const retained = state.assets.filter(asset => !isPreferenceRecord(asset));
+      const retainedBase = Object.fromEntries(Object.entries(state.base).filter(([id]) => ![CONTROL_ID, PREFERENCES_ID].includes(id)));
+      state.assets = [...retained, ...specials];
+      return { local: specials, remote: preferences.remote, base: preferences.base,
+        passthrough: [...remoteAssets.filter(asset => !isPreferenceRecord(asset)), ...preferences.passthrough],
+        retained, retainedBase, preferencesOnly: true, skipAssets: true, preferences, priority, beforeValues, state, observed: new Map() };
     }
-    for (const id of Object.keys(base)) if (!local.some(asset => asset.id === id) && !remote.some(asset => asset.id === id)) delete base[id];
-    state.assets = local;
-    return { ...plan, local, remote, passthrough, base, observed: new Map(this.observed) };
+    return this.withPreferences(preferences, async () => {
+      const changedTypes = Object.keys(TARGET_DEFAULTS).filter(type => this.projection && this.policy.enabled[type] !== this.projection.enabled[type]);
+      const resetTypes = new Set([...this.policy.resetTypes, ...changedTypes]);
+      const configs = await this.capture();
+      const plan = await this.native.prepare(state, remoteAssets.filter(isNative));
+      const active = asset => !isNative(asset) && !isPreferenceRecord(asset) && this.isActive(asset);
+      const local = [...plan.local, ...configs, ...specials];
+      const remote = [...plan.remote, ...remoteAssets.filter(active), ...(preferences?.remote ?? [])];
+      const passthrough = [...plan.passthrough, ...remoteAssets.filter(asset => !isNative(asset) && !isPreferenceRecord(asset) && !active(asset)), ...(preferences?.passthrough ?? [])];
+      const base = { ...plan.base, ...(preferences?.base ?? {}) };
+      for (const asset of [...plan.local, ...plan.remote, ...configs, ...remote.filter(asset => asset.type === 'plugins')]) {
+        if (resetTypes.has(asset.type)) delete base[asset.id];
+        else if (!isNative(asset) && Object.hasOwn(state.base, asset.id)) base[asset.id] = state.base[asset.id];
+      }
+      for (const id of Object.keys(base)) if (!local.some(asset => asset.id === id) && !remote.some(asset => asset.id === id)) delete base[id];
+      state.assets = local;
+      return { ...plan, local, remote, passthrough, base, observed: new Map(this.observed), preferences, priority, beforeValues, state };
+    });
+  }
+  async commitPriority(plan) {
+    const current = plan.preferences.before.valuesHash === null ? undefined : this.preferences.localValues(plan.state, this.policy.enabled);
+    this.preferences.assertCurrent(plan.preferences, current);
+    await this.preferences.commitControl(plan.preferences, current);
+  }
+  async applyPreferences(plan, assets) {
+    if (!plan.preferences) return;
+    const values = plan.preferences.selectedValues;
+    if (values) {
+      const changed = new Set(Object.keys(TARGET_DEFAULTS).filter(type => this.policy.enabled[type] !== values.targets[type]));
+      this.policy.enabled = { ...values.targets };
+      this.native.targets = this.projection?.enabled ?? this.policy.enabled;
+      if (plan.preferences.remotePreferences) this.policy.accepted = true;
+      this.policy.resetTypes = [...new Set([...this.policy.resetTypes, ...changed])];
+      for (const [id, item] of Object.entries(this.native.config.known)) if (changed.has(item.type)) this.native.config.baselineResets[id] = item;
+      for (const asset of plan.retained ?? []) if (changed.has(asset.type)) delete plan.retainedBase[asset.id];
+      plan.state.settings.enabled = values.autoSync; plan.state.settings.intervalSeconds = values.intervalSeconds;
+      await this.native.save(); await this.save();
+    }
+    await this.preferences.commit(plan.preferences, assets, plan.beforeValues);
+    plan.preferencesCommitted = true;
   }
   async apply(plan, assets) {
-    const changes = [];
-    const selected = new Map(assets.filter(asset => !isNative(asset)).map(asset => [asset.id, asset]));
-    // Recheck configuration without replacing the plugin snapshot captured before publication.
-    await this.capture({ includePlugins: false });
-    for (const [id, before] of plan.observed) {
-      const current = this.observed.get(id);
-      invariant(current && hash(current.asset) === hash(before.asset) && current.revision === before.revision, 'Local settings changed during synchronization. Retry.', 'local-changed');
-      const after = selected.get(id) ?? configAsset(before.asset.type, before.asset.namespace, {});
-      if (hash(after) !== hash(before.asset)) changes.push({ before, after });
-      else if (this.policy.pending[id]) { delete this.policy.pending[id]; await this.save(); }
+    if (plan.preferences) {
+      const current = plan.preferences.before.valuesHash === null ? undefined : this.preferences.localValues(plan.state, this.policy.enabled);
+      this.preferences.assertCurrent(plan.preferences, current);
+      if (plan.skipAssets) return this.applyPreferences(plan, assets);
     }
-    await this.native.apply(plan, assets.filter(isNative));
-    if (this.enabled('plugins') && this.plugins?.status().available) await this.plugins.apply(assets.filter(asset => asset.type === 'plugins'));
-    for (const { before, after } of changes) {
-      if (after.type === 'model-config') {
-        this.policy.pending[after.id] = { asset: after, before: hash(before.asset), trust: before.trust, previous: before.asset.values };
-        await this.save();
-      } else {
-        await this.settings.mutate(after.namespace, configOps(before.actual.values, after.values), before.revision);
-        await this.recordApplied(after);
+    return this.withPreferences(plan.preferences, async () => {
+      const changes = [];
+      const selected = new Map(assets.filter(asset => !isNative(asset)).map(asset => [asset.id, asset]));
+      // Recheck configuration without replacing the plugin snapshot captured before publication.
+      await this.capture({ includePlugins: false });
+      for (const [id, before] of plan.observed) {
+        const current = this.observed.get(id);
+        invariant(current && hash(current.asset) === hash(before.asset) && current.revision === before.revision, 'Local settings changed during synchronization. Retry.', 'local-changed');
+        const after = selected.get(id) ?? configAsset(before.asset.type, before.asset.namespace, {});
+        if (hash(after) !== hash(before.asset)) changes.push({ before, after });
+        else if (this.policy.pending[id]) { delete this.policy.pending[id]; await this.save(); }
       }
-    }
+      await this.native.apply(plan, assets.filter(isNative));
+      if (this.enabled('plugins') && this.plugins?.status().available) await this.plugins.apply(assets.filter(asset => asset.type === 'plugins'));
+      for (const { before, after } of changes) {
+        if (after.type === 'model-config') {
+          this.policy.pending[after.id] = { asset: after, before: hash(before.asset), trust: before.trust, previous: before.asset.values };
+          await this.save();
+        } else {
+          await this.settings.mutate(after.namespace, configOps(before.actual.values, after.values), before.revision);
+          await this.recordApplied(after);
+        }
+      }
+      await this.applyPreferences(plan, assets);
+    });
   }
-  async committed(state, published) {
-    await this.native.committed(state, published.filter(isNative));
-    this.policy.resetTypes = this.policy.resetTypes.filter(type => !this.enabled(type)); await this.save();
+  async committed(state, published, plan) {
+    if (plan?.preferences && !plan.preferencesCommitted) await this.preferences.commit(plan.preferences, published, plan.beforeValues);
+    if (!plan?.preferencesOnly) {
+      await this.native.committed(state, published.filter(isNative));
+      this.policy.resetTypes = this.policy.resetTypes.filter(type => !this.enabled(type)); await this.save();
+    }
   }
   status() {
     return { enabled: { ...this.policy.enabled }, needsConsent: !this.policy.accepted,
+      syncConfigEnabled: this.preferences?.enabled ?? true,
       settingsAvailable: !!this.settings?.describe && !!this.settings?.mutate, issues: this.issues,
       pendingModels: this.enabled('model-config') ? Object.values(this.policy.pending).map(({ asset, previous }) => ({ id: asset.id, name: asset.name, fingerprint: hash(asset), values: asset.values, previous: previous ?? {} })) : [] };
   }
@@ -167,6 +232,7 @@ export class SyncTargets {
       if ((key === 'model-config' || key === 'plugins') && value && !this.policy.enabled[key]) invariant(input.confirmRisk === true, 'Acknowledge the increased exposure and attack surface.', 'confirmation-required');
     }
     if (!this.policy.accepted) invariant(input.confirmScope === true, 'Confirm the expanded synchronization scope.', 'confirmation-required');
+    await this.preferences?.markEdited();
     const changed = Object.keys(input.enabled).filter(key => input.enabled[key] !== this.policy.enabled[key]);
     this.policy.enabled = { ...this.policy.enabled, ...input.enabled }; this.policy.accepted = true;
     this.native.targets = this.policy.enabled;

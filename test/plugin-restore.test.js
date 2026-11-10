@@ -17,7 +17,8 @@ function harness() {
   let definition, current, nextTimer = 0, activeLocale = 'en', closed = 0, managed = 0, notified = 0;
   const dictionaries = {}, slots = new Map(), disposers = [], listeners = new Set();
   const calls = [], replies = [], gets = [], intervals = new Map(), timeouts = new Map();
-  const document = { hidden: false };
+  const events = new Map();
+  const document = { hidden: false, addEventListener(name, callback) { events.set(name, callback); }, removeEventListener(name, callback) { if (events.get(name) === callback) events.delete(name); } };
   const React = {
     Fragment: Symbol('fragment'),
     createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
@@ -39,7 +40,7 @@ function harness() {
     window: { __ModuleLoader__: { load(value) { definition = value; } } }, document, AbortController, URL,
     setInterval(callback, delay) { assert.equal(delay, 3000); intervals.set(++nextTimer, callback); return nextTimer; },
     clearInterval(id) { intervals.delete(id); },
-    setTimeout(callback, delay) { assert.equal(delay, 10000); timeouts.set(++nextTimer, callback); return nextTimer; },
+    setTimeout(callback, delay) { assert.ok([10000, 150].includes(delay)); timeouts.set(++nextTimer, callback); return nextTimer; },
     clearTimeout(id) { timeouts.delete(id); },
     async fetch(url, options) {
       calls.push({ url, options });
@@ -76,7 +77,7 @@ function harness() {
   const panel = runner(Component, { onClose() { closed++; }, onManage() { managed++; }, onStatusChange() { notified++; } });
   const button = key => { const value = flatten(panel.render()).find(node => node.type === 'button' && node.children.includes(en[key])); assert.ok(value, key); return value; };
   return {
-    calls, replies, gets, panel, document, intervals, timeouts, listeners, slots, button,
+    calls, replies, gets, panel, document, events, intervals, timeouts, listeners, slots, button,
     get closed() { return closed; }, get managed() { return managed; }, get notified() { return notified; },
     boxes: () => flatten(panel.render()).filter(node => node.type === 'input'),
     text: () => JSON.stringify(panel.render()),
@@ -87,6 +88,22 @@ function harness() {
     locale(language) { activeLocale = language; },
   };
 }
+
+test('ordinary plugin guidance stays in shared help and scroll dismisses it', async () => {
+  const app = harness(); await app.mount();
+  const nodes = () => flatten(app.panel.render());
+  const bubble = () => nodes().find(node => node.type === 'tooltip' && node.props.label === en.pluginsManualHelp);
+  assert.equal(bubble().props.openOnClick, true); assert.equal(bubble().props.delayMs, 500); assert.equal(bubble().props.focusDelayMs, 500);
+  assert.equal(bubble().props.portal, false); assert.equal(bubble().props.disabled, false);
+  assert.ok(!nodes().some(node => node.type === 'p' && node.children.includes(en.pluginsManualHelp)));
+  assert.ok(nodes().some(node => node.type === 'p' && node.children.includes(en.pluginsWarning)));
+  app.events.get('scroll')({ target: {} }); app.panel.commit(); assert.equal(bubble().props.disabled, true);
+  for (const [id, callback] of app.timeouts) { app.timeouts.delete(id); callback(); }
+  app.panel.commit(); assert.equal(bubble().props.disabled, false);
+  app.boxes()[0].props.onChange({ target: { checked: false } });
+  assert.ok(!nodes().some(node => node.type === 'p' && node.children.includes(en.pluginsWarning)));
+  app.dispose(); assert.equal(app.events.has('scroll'), false); assert.equal(app.timeouts.size, 0);
+});
 
 test('restoration polls only metadata and submits exact displayed eligible choices without another confirmation', async () => {
   const app = harness();

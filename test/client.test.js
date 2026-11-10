@@ -855,7 +855,7 @@ test('tab navigation and polling retain drafts and fingerprint-bound conflict ch
 
 test('ordinary explanations use delayed clickable help outside option labels and close when their panel hides', async () => {
   const app = harness(); await app.mount();
-  const ordinary = ['applicationHelp', 'autoHelp', 'trackingHelp', 'trackingAgentsHelp', 'deviceTrustHelp', 'passphraseHelp', 'backupsHelp'];
+  const ordinary = ['applicationHelp', 'autoHelp', 'trackingHelp', 'trackingAgentsHelp', 'deviceTrustHelp', 'passphraseHelp', 'backupsHelp', 'targetsPolicyHelp', 'targetsScopeHelp', 'targetsModelsHelp', 'pluginsManualHelp', 'syncConfigHelp'];
   let nodes = flatten(app.render());
   for (const key of ordinary) {
     const bubble = nodes.find(node => node.type === 'tooltip' && node.props.label === english[key]); assert.ok(bubble, key);
@@ -910,12 +910,60 @@ test('recovery and destructive confirmation dialogs suppress help without changi
   assert.equal(app.button(english.recoveryConfirm).props.disabled, true); app.unmount();
 });
 
+test('configuration sync appears first, defaults on, and toggles without another confirmation', async () => {
+  const app = harness(); await app.mount(); switchTab(app, 'targets');
+  const option = () => visibleNodes(app.render()).find(node => node.type === 'label' && node.children.includes(english.syncConfig));
+  const input = () => flatten(option()).find(node => node.type === 'input');
+  assert.ok(visibleNodes(app.render()).filter(node => node.type === 'label')[0].children.includes(english.syncConfig));
+  assert.equal(input().props.checked, true);
+  app.states[state.status] = { ...base, targets: { needsConsent: true } };
+  input().props.onChange({ target: { checked: false } }); app.commit();
+  assert.equal(app.states[state.confirm], null); assert.equal(app.trackingDialog.open, false);
+  await flush();
+  const posts = app.calls.filter(call => call.options.method === 'POST');
+  assert.equal(posts.length, 1);
+  assert.deepEqual(JSON.parse(posts[0].options.body), { action: 'preferences-configure', enabled: false });
+  app.states[state.status] = { ...base, targets: { syncConfigEnabled: false } };
+  assert.equal(input().props.checked, false);
+  input().props.onChange({ target: { checked: true } }); await flush();
+  const latest = app.calls.filter(call => call.options.method === 'POST').at(-1);
+  assert.deepEqual(JSON.parse(latest.options.body), { action: 'preferences-configure', enabled: true });
+  assert.equal(app.states[state.confirm], null); app.unmount();
+});
+
+test('cloud configuration state is reflected without uploading or showing ordinary guidance paragraphs', async () => {
+  const app = harness(); await app.mount(); switchTab(app, 'targets');
+  const cloud = { ...base, targets: { syncConfigEnabled: false, enabled: { prompt: false, skill: true, settings: false, 'model-config': true, plugins: false } } };
+  app.getReplies.push(app.success(cloud)); await app.events.get('focus')(); await flush(); app.commit();
+  const labels = visibleNodes(app.render()).filter(node => node.type === 'label');
+  const checked = key => flatten(labels.find(node => node.children.includes(english[key]))).find(node => node.type === 'input').props.checked;
+  assert.equal(checked('syncConfig'), false); assert.equal(checked('targetPrompts'), false);
+  assert.equal(checked('targetSettings'), false); assert.equal(checked('targetModels'), true);
+  const nodes = visibleNodes(app.render()), help = nodes.find(node => node.type === 'tooltip' && node.props.label === english.syncConfigHelp);
+  assert.ok(help); assert.equal(help.props.openOnClick, true); assert.equal(help.props.delayMs, 500); assert.equal(help.props.portal, false);
+  assert.ok(!nodes.some(node => node.type === 'p' && [english.syncConfigHelp, english.targetsPolicyHelp].some(text => node.children.includes(text))));
+  assert.equal(app.calls.filter(call => call.options.method === 'POST').length, 0); app.unmount();
+});
+
+test('shared configuration conflicts use localized control and preferences labels', async () => {
+  const app = harness(); await app.mount();
+  app.states[state.status] = { ...base, conflicts: [
+    { id: 'control', type: 'sync-control', name: 'Control', localHash: 'l1', remoteHash: 'r1' },
+    { id: 'preferences', type: 'sync-preferences', name: 'Preferences', localHash: 'l2', remoteHash: 'r2' },
+  ] };
+  switchTab(app, 'conflicts');
+  const nodes = visibleNodes(app.render());
+  for (const key of ['typeSyncControl', 'typeSyncPreferences']) assert.ok(nodes.some(node => node.children.includes(' · ' + english[key])));
+  app.unmount();
+});
+
 test('targets expose safe defaults and require local risk acknowledgement before enabling models', async () => {
   const app = harness(); await app.mount(); switchTab(app, 'targets');
   const labels = visibleNodes(app.render()).filter(node => node.type === 'label');
   const option = text => flatten(labels.find(node => node.children.includes(text))).find(node => node.type === 'input');
   for (const key of ['targetPrompts', 'targetSkills', 'targetSettings']) assert.equal(option(english[key]).props.checked, true);
   assert.equal(option(english.targetModels).props.checked, false); assert.equal(option(english.targetPlugins).props.checked, false);
+  assert.ok(!visibleNodes(app.render()).some(node => node.type === 'p' && node.children.includes(english.targetsRisk)));
   const before = app.calls.length; option(english.targetModels).props.onChange({ target: { checked: true } }); app.commit();
   assert.equal(app.calls.length, before); assert.equal(app.trackingDialog.open, true);
   app.click(english.cancel); app.commit(); assert.equal(app.calls.length, before);
@@ -951,6 +999,9 @@ test('incoming model settings are reviewable and application binds the exact dis
   app.states[state.status] = { ...base, targets: { enabled: { 'model-config': true }, pendingModels: [{ id: 'model-fixture', name: 'llm-deepseek', fingerprint: 'fixture-hash', values: { baseURL: 'https://fixture.example/api' } }] } };
   switchTab(app, 'targets');
   assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.modelsApplyWarning)));
+  const nodes = visibleNodes(app.render());
+  assert.ok(nodes.some(node => node.type === 'tooltip' && node.props.label === english.modelsResetWarning));
+  assert.ok(!nodes.some(node => node.type === 'p' && node.children.includes(english.modelsResetWarning)));
   app.click(english.modelsApply); await flush();
   const post = app.calls.find(call => call.options.method === 'POST');
   assert.deepEqual(JSON.parse(post.options.body), { action: 'model-apply', id: 'model-fixture', fingerprint: 'fixture-hash' });

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { validateConfig } from './portable-config.js';
 import { validatePlugin } from './plugin-sync.js';
+import { isPreferenceRecord, validatePreferenceRecord } from './preference-records.js';
 
 export const MAX_BYTES = 24 * 1024 * 1024;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,6 +49,7 @@ export function nativeId(origin) {
 }
 export function validateAsset(asset) {
   invariant(asset && UUID.test(asset.id), 'Invalid asset ID.');
+  if (isPreferenceRecord(asset)) { validatePreferenceRecord(asset); return asset; }
   if (asset.type === 'plugins') { validatePlugin(asset); return asset; }
   if (['settings', 'model-config'].includes(asset.type)) { validateConfig(asset); invariant(Buffer.byteLength(canonical(asset)) <= MAX_BYTES, 'Asset is too large.'); return asset; }
   invariant(['prompt', 'skill'].includes(asset.type), 'Unsupported asset type.');

@@ -5,6 +5,8 @@ import { LocalStore } from './local-store.js';
 import { SyncEngine } from './engine.js';
 import { MICROSOFT_CLIENT_ID } from './config.js';
 import { NativeTracking } from './tracking.js';
+import { SyncPreferences } from './sync-preferences.js';
+import { CONTROL_ID, PREFERENCES_ID, isPreferenceRecord } from './preference-records.js';
 import { SyncTargets } from './sync-targets.js';
 import { PluginSync } from './plugin-sync.js';
 import { DeviceTrust } from './device-trust.js';
@@ -15,7 +17,8 @@ export class Application {
     this.directory = directory; this.credentials = credentials; this.onChange = onChange;
     this.store = new LocalStore(directory); this.tracking = new NativeTracking({ directory, roots });
     this.plugins = new PluginSync({ directory, manager: pluginManager, onChange: () => this.onChange() });
-    this.targets = new SyncTargets({ directory, native: this.tracking, settings, plugins: this.plugins });
+    this.preferences = new SyncPreferences({ directory });
+    this.targets = new SyncTargets({ directory, native: this.tracking, settings, plugins: this.plugins, preferences: this.preferences });
     this.deviceTrust = new DeviceTrust({ directory, ...(deviceProtector ? { protector: deviceProtector } : {}) });
     this.deviceError = null; this.auth = null; this.engine = null; this.timer = null; this.closed = false;
     this.nextDiscovery = 0; this.discovering = false;
@@ -54,7 +57,7 @@ export class Application {
   async status() {
     const state = await this.store.read(); const trust = this.deviceTrust.status();
     return { ...await this.engine.status(), signedIn: await this.auth.signedIn(), auth: this.auth.status(),
-      backups: state.backups.filter(backup => backup.origin || backup.type).map(({id,createdAt,side,origin,type,name}) => ({id,createdAt,side,origin,type,name})),
+      backups: state.backups.filter(backup => !isPreferenceRecord(backup) && (backup.origin || backup.type)).map(({id,createdAt,side,origin,type,name}) => ({id,createdAt,side,origin,type,name})),
       dataDirectory: this.directory, tracking: this.tracking.status(), targets: { ...this.targets.status(), plugins: this.pluginStatus() }, localAtRest: 'plaintext',
       deviceTrust: { ...trust, ...(this.deviceError ? { error: this.deviceError } : {}) } };
   }
@@ -81,14 +84,15 @@ export class Application {
     if (!this.discovering && Date.now() >= this.nextDiscovery) {
       this.discovering = true;
       try { await this.operation('tracking-refresh'); }
+      catch (_discoveryError) { /* Asset discovery must not block the independent shared configuration check. */ }
       finally { this.discovering = false; this.nextDiscovery = Date.now() + 5000; }
     }
     if (this.closed || this.running || Date.now() < this.nextAttempt) return;
     const state = await this.store.read();
-    if (!state.settings.enabled || !state.vaultId || !await this.auth.signedIn() || this.engine.conflicts.length) return;
+    if (!state.vaultId || !await this.auth.signedIn()) return;
     if (state.encrypted && !this.engine.key) return;
     this.running = true;
-    try { await this.operation('sync'); this.failures = 0; }
+    try { await this.operation('sync', { preferencesOnly: !state.settings.enabled || this.engine.conflicts.length > 0 }); this.failures = 0; }
     catch { this.failures = Math.min(this.failures + 1, 5); }
     finally { this.running = false; this.nextAttempt = Date.now() + Math.min(300000, state.settings.intervalSeconds * 1000 * 2 ** this.failures); }
   }
@@ -155,6 +159,10 @@ export class Application {
         const result = action === 'plugins-install' ? await this.plugins.install(input.choices) : await this.plugins.ignore(input.id, input.fingerprint);
         this.onChange(); return result;
       }
+      case 'preferences-configure': {
+        const result = await this.store.exclusive(() => this.preferences.configure(input.enabled));
+        this.nextAttempt = 0; this.engine.phase = 'pending'; this.onChange(); return result;
+      }
       case 'targets-configure': {
         const result = await this.store.exclusive(async () => {
           const state = await this.store.read(); const result = await this.targets.configure(state, input); await this.store.write(state); return result;
@@ -168,7 +176,11 @@ export class Application {
         await this.store.exclusive(async () => {
           const state = await this.store.read();
           invariant(input.clientId === undefined, 'The Microsoft application ID is fixed by this release and cannot be edited.', 'fixed-client-id');
-          if (input.enabled !== undefined) { invariant(typeof input.enabled === 'boolean', 'Invalid automatic sync preference.'); state.settings.enabled = input.enabled; }
+          if (input.intervalSeconds !== undefined) invariant(Number.isInteger(input.intervalSeconds) && input.intervalSeconds >= 5 && input.intervalSeconds <= 3600, 'Invalid automatic sync interval.');
+          if (input.enabled !== undefined) invariant(typeof input.enabled === 'boolean', 'Invalid automatic sync preference.');
+          if (input.enabled !== undefined || input.intervalSeconds !== undefined) await this.preferences.markEdited();
+          if (input.intervalSeconds !== undefined) state.settings.intervalSeconds = input.intervalSeconds;
+          if (input.enabled !== undefined) state.settings.enabled = input.enabled;
           await this.store.write(state);
         });
         this.nextAttempt = 0; this.onChange(); return { configured: true };
@@ -196,7 +208,13 @@ export class Application {
         return result;
       }
       case 'sync': {
-        try { return await this.engine.synchronize(input.decisions ?? {}); }
+        try {
+          if (caller === 'agent') invariant(!Object.keys(input.decisions ?? {}).some(id => [CONTROL_ID, PREFERENCES_ID].includes(id)), 'Shared configuration conflicts require a user choice.', 'user-only');
+          const decisions = input.decisions ?? {};
+          const preferenceResult = await this.engine.synchronize(decisions, { preferencesOnly: true });
+          if (input.preferencesOnly === true || preferenceResult.conflicts?.some(isPreferenceRecord)) return preferenceResult;
+          return await this.engine.synchronize(decisions);
+        }
         catch (error) {
           if (!this.engine.key && this.deviceTrust.status().hasSavedKey) {
             try { await this.deviceTrust.lock(); } catch { this.deviceError = { code: 'device-cache-clear-failed', message: 'The invalid device unlock cache could not be cleared.' }; }

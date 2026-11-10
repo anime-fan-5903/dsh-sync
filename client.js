@@ -94,7 +94,7 @@ window.__ModuleLoader__.load({
     "unlocked": "Unlocked",
     "sync": "Sync now",
     "autoSync": "Automatic sync",
-    "autoHelp": "Changes sync automatically while this Host is running and authorized. Pending local changes remain on this device until sync succeeds.",
+    "autoHelp": "Controls automatic asset sync. Shared configuration is still checked while signed in and unlocked.",
     "directory": "Host data directory",
     "security": "Vault security",
     "unlockMethod": "Unlock using",
@@ -244,24 +244,28 @@ window.__ModuleLoader__.load({
     "targetPlugins": "Plugins",
     "targetsConfirmTitle": "Confirm sync scope",
     "targetsConfirm": "Confirm and save",
-    "targetsScopeHelp": "DSH options include reviewed appearance and chat preferences only. Credentials, security policies, local paths and installation permissions are never synchronized.",
-    "targetsPolicyHelp": "Choices apply to this device. Turning a category off stops participation without deleting local or cloud copies. Re-enabling checks differences again.",
-    "targetsRisk": "Model and plugin synchronization may expose service details and expand the attack surface. Encryption does not authorize remote connections or code execution.",
-    "targetsUpgradeConsent": "This update adds DSH options. Confirm the expanded scope before options begin synchronizing.",
-    "targetsModelsHelp": "Model configuration excludes API keys, login tokens, credential bindings and custom headers. Incoming model changes require local confirmation before application.",
-    "targetsUnavailable": "The Host settings service is unavailable. Configuration synchronization is not active.",
-    "modelsPending": "Model configuration awaiting confirmation",
-    "modelsApplyWarning": "Review these settings before applying. A changed API endpoint can send conversations and existing local credentials to a different service. Local credential bindings and custom headers on retained providers will be preserved.",
-    "modelsApply": "Confirm and apply model configuration",
-    "modelsBefore": "Current portable overrides",
-    "modelsAfter": "Incoming portable overrides",
-    "modelsResetWarning": "Missing fields reset to the inherited settings on this device. Resetting an omitted provider or override clears its local overrides, including local credential references on that provider; stored credentials are not deleted. Inherited providers may remain active.",
+    "targetsScopeHelp": "Appearance and chat preferences only; excludes credentials and security settings.",
+    "targetsPolicyHelp": "Shared across devices while configuration sync is on. Turning a category off keeps existing copies.",
+    "syncConfig": "DSH Sync configuration sync",
+    "syncConfigHelp": "This switch is shared across devices. When off, only its state is synchronized.",
+    "typeSyncControl": "Sync configuration switch",
+    "typeSyncPreferences": "DSH Sync preferences",
+    "targetsRisk": "Syncing models or plugins may expose configuration details and expand the attack surface. Continue?",
+    "targetsUpgradeConsent": "Confirm to include DSH options in synchronization.",
+    "targetsModelsHelp": "Sync provider and model settings, without credentials or custom headers. Confirm incoming changes locally.",
+    "targetsUnavailable": "Host settings are unavailable.",
+    "modelsPending": "Review model changes",
+    "modelsApplyWarning": "A new API address may receive conversations and existing local credentials.",
+    "modelsApply": "Confirm and apply",
+    "modelsBefore": "Current overrides",
+    "modelsAfter": "Incoming overrides",
+    "modelsResetWarning": "Missing overrides reset to local defaults. Resetting a provider also resets its credential reference, not the stored key.",
     "pluginsTitle": "Restore plugins",
     "pluginsPending": "Plugins need attention",
     "pluginsInstalling": "Installing plugins…",
     "sidebarHelpPlugins": "Open to review plugin differences and confirm installation on this device.",
-    "pluginsWarning": "Installing and enabling Host plugins executes code that can access data available to your user account. Already allowed install scripts may run. This action never grants new script permissions or version exemptions.",
-    "pluginsManualHelp": "Different versions or sources require the DSH plugin manager. No automatic upgrade, downgrade or uninstall is performed.",
+    "pluginsWarning": "Plugins run code with access to local data. Install only plugins you trust.",
+    "pluginsManualHelp": "Restore missing plugins and their enablement. Use the plugin manager for different versions or sources; existing script permissions still apply.",
     "pluginsLoading": "Checking plugin differences…",
     "pluginsLoadFailed": "Plugin differences could not be checked. Refresh to retry.",
     "pluginsActionFailed": "The operation could not be completed. Refresh to check its outcome before retrying.",
@@ -280,11 +284,11 @@ window.__ModuleLoader__.load({
     "pluginsIgnored": "Ignored on this device",
     "pluginsManual": "Manual handling required in the DSH plugin manager.",
     "pluginsBuildBlocked": "Install scripts need approval in the DSH plugin manager.",
-    "pluginsIncompatible": "Incompatible with this DSH version. Review in the plugin manager; no exemption was granted.",
+    "pluginsIncompatible": "Incompatible with this DSH version. Check the plugin manager.",
     "pluginsRestart": "Restart DSH to finish applying this plugin.",
     "pluginsFailed": "Plugin operation failed. Review its state before retrying.",
-    "pluginsIgnore": "Ignore this item on this device",
-    "pluginsInstall": "Install and apply selected plugin states",
+    "pluginsIgnore": "Ignore on this device",
+    "pluginsInstall": "Confirm and apply selected",
     "pluginsLater": "Later",
     "pluginsManage": "Detailed management"
   },
@@ -376,7 +380,7 @@ window.__ModuleLoader__.load({
     "unlocked": "已解锁",
     "sync": "立即同步",
     "autoSync": "自动同步",
-    "autoHelp": "此 Host 运行且已获授权时，更改会自动同步。待同步的本地更改会保留在此设备上，直到同步成功。",
+    "autoHelp": "控制资产自动同步。关闭后，登录且解锁时仍会检查共享配置。",
     "directory": "Host 数据目录",
     "security": "保险库安全",
     "unlockMethod": "解锁方式",
@@ -526,24 +530,28 @@ window.__ModuleLoader__.load({
     "targetPlugins": "插件",
     "targetsConfirmTitle": "确认同步范围",
     "targetsConfirm": "确认并保存",
-    "targetsScopeHelp": "DSH 选项仅包含经过审核的外观和聊天偏好。不包含凭据、安全策略、本机路径和安装授权。",
-    "targetsPolicyHelp": "选择仅对本设备生效。关闭类别会停止参与，不删除本地或云端副本；重新开启时会重新核对差异。",
-    "targetsRisk": "同步模型及插件可能暴露服务信息并扩大攻击面。加密不等于授权远端连接或代码执行。",
-    "targetsUpgradeConsent": "此更新新增 DSH 选项同步。确认扩大的范围后才会开始同步选项。",
-    "targetsModelsHelp": "模型配置不含 API 密钥、登录令牌、凭据绑定和自定义请求头。收到的模型变更需在本地确认后应用。",
-    "targetsUnavailable": "Host 设置服务不可用，配置同步尚未生效。",
-    "modelsPending": "模型配置等待确认",
-    "modelsApplyWarning": "请先核对配置。修改 API 地址可能将对话及本机已有凭据发送到另一服务。保留的提供商条目中的本机凭据绑定和自定义请求头会保留。",
-    "modelsApply": "确认并应用模型配置",
-    "modelsBefore": "当前可同步覆盖项",
-    "modelsAfter": "收到的可同步覆盖项",
-    "modelsResetWarning": "缺失字段会重置为本设备的继承设置。重置未包含的提供商或覆盖项会清除其本地覆盖，包括该提供商的本机凭据引用；不会删除凭据库中的密钥。继承的提供商可能仍保持启用。",
+    "targetsScopeHelp": "仅同步外观和聊天偏好，不含凭据和安全设置。",
+    "targetsPolicyHelp": "开启配置同步时在设备间共享；关闭类别不删除副本。",
+    "syncConfig": "DSH Sync 配置同步",
+    "syncConfigHelp": "此开关在设备间共享；关闭后仅同步开关状态。",
+    "typeSyncControl": "配置同步开关",
+    "typeSyncPreferences": "DSH Sync 配置",
+    "targetsRisk": "同步模型或插件可能泄露配置信息，并扩大攻击面。是否继续？",
+    "targetsUpgradeConsent": "确认后将开始同步 DSH 选项。",
+    "targetsModelsHelp": "同步提供商和模型设置，不含凭据及自定义请求头。收到的变更需在本机确认。",
+    "targetsUnavailable": "Host 设置服务不可用。",
+    "modelsPending": "核对模型变更",
+    "modelsApplyWarning": "新的 API 地址可能收到对话及本机已有凭据。",
+    "modelsApply": "确认并应用",
+    "modelsBefore": "当前覆盖项",
+    "modelsAfter": "收到的覆盖项",
+    "modelsResetWarning": "缺失的覆盖项恢复本机默认。重置提供商也会重置其凭据引用，但不删除密钥。",
     "pluginsTitle": "恢复插件",
     "pluginsPending": "插件待处理",
     "pluginsInstalling": "正在安装插件…",
     "sidebarHelpPlugins": "点击查看插件差异，并在本设备快捷确认安装。",
-    "pluginsWarning": "安装和启用 Host 插件会执行代码，可访问当前用户可访问的数据。已获授权的安装脚本可能运行；此操作不会新增脚本权限或版本豁免。",
-    "pluginsManualHelp": "版本或来源不同的插件请使用 DSH 插件管理器处理。不会自动升级、降级或卸载。",
+    "pluginsWarning": "插件可执行代码并访问本机数据，请仅安装可信插件。",
+    "pluginsManualHelp": "恢复缺失插件及启用状态。版本或来源不同请在插件管理器中处理；已有脚本授权仍有效。",
     "pluginsLoading": "正在检查插件差异…",
     "pluginsLoadFailed": "无法检查插件差异，请刷新重试。",
     "pluginsActionFailed": "操作未能完成。请先刷新核对结果，再决定是否重试。",
@@ -562,11 +570,11 @@ window.__ModuleLoader__.load({
     "pluginsIgnored": "本设备已忽略",
     "pluginsManual": "需要在 DSH 插件管理器中手动处理。",
     "pluginsBuildBlocked": "安装脚本需要在 DSH 插件管理器中另行授权。",
-    "pluginsIncompatible": "与当前 DSH 版本不兼容。请在插件管理器中检查；未授予版本豁免。",
+    "pluginsIncompatible": "与当前 DSH 不兼容，请在插件管理器中检查。",
     "pluginsRestart": "请重启 DSH 以完成此插件的应用。",
     "pluginsFailed": "插件操作失败，请先核对状态再重试。",
-    "pluginsIgnore": "在本设备忽略此项",
-    "pluginsInstall": "安装并应用所选插件状态",
+    "pluginsIgnore": "在本设备忽略",
+    "pluginsInstall": "确认并应用所选项",
     "pluginsLater": "稍后",
     "pluginsManage": "详细管理"
   },
@@ -658,7 +666,7 @@ window.__ModuleLoader__.load({
     "unlocked": "ロック解除済み",
     "sync": "今すぐ同期",
     "autoSync": "自動同期",
-    "autoHelp": "この Host が実行中で承認されている間、変更は自動的に同期されます。保留中のローカル変更は、同期が成功するまでこのデバイスに残ります。",
+    "autoHelp": "アセットの自動同期を切り替えます。無効でも、サインイン済みでロック解除中は共有設定を確認します。",
     "directory": "Host のデータディレクトリ",
     "security": "保管庫のセキュリティ",
     "unlockMethod": "ロック解除方法",
@@ -808,24 +816,28 @@ window.__ModuleLoader__.load({
     "targetPlugins": "プラグイン",
     "targetsConfirmTitle": "同期範囲の確認",
     "targetsConfirm": "確認して保存",
-    "targetsScopeHelp": "DSH オプションは確認済みの外観とチャットの設定のみです。認証情報、セキュリティ方針、ローカルパス、インストール許可は同期しません。",
-    "targetsPolicyHelp": "選択はこのデバイスだけに適用されます。無効にしてもローカルとクラウドのコピーは削除しません。再有効化時に差分を再確認します。",
-    "targetsRisk": "モデルとプラグインの同期はサービス情報の露出や攻撃対象の拡大につながる可能性があります。暗号化は接続やコード実行の許可ではありません。",
-    "targetsUpgradeConsent": "この更新は DSH オプションを追加します。範囲を確認するまでオプションの同期は開始しません。",
-    "targetsModelsHelp": "API キー、ログイントークン、認証情報の参照、カスタムヘッダーは含みません。受信したモデル変更はローカルで確認後に適用します。",
-    "targetsUnavailable": "Host の設定サービスを利用できません。設定の同期は無効です。",
-    "modelsPending": "確認待ちのモデル設定",
-    "modelsApplyWarning": "適用前に確認してください。API 接続先の変更は会話や既存の認証情報を別のサービスに送信する可能性があります。残るプロバイダーのローカル認証情報参照とヘッダーは保持されます。",
-    "modelsApply": "確認してモデル設定を適用",
-    "modelsBefore": "現在の同期対象の上書き",
-    "modelsAfter": "受信した同期対象の上書き",
-    "modelsResetWarning": "省略された項目はこのデバイスの継承設定に戻ります。プロバイダーの上書きをリセットするとローカルの認証情報参照も戻りますが、保存された認証情報自体は削除しません。継承プロバイダーは引き続き有効な場合があります。",
+    "targetsScopeHelp": "外観とチャット設定のみ同期します。認証情報やセキュリティ設定は含みません。",
+    "targetsPolicyHelp": "設定同期が有効な間はデバイス間で共有します。対象を無効にしてもコピーは残ります。",
+    "syncConfig": "DSH Sync 設定の同期",
+    "syncConfigHelp": "このスイッチはデバイス間で共有します。無効な間はスイッチの状態だけを同期します。",
+    "typeSyncControl": "設定同期スイッチ",
+    "typeSyncPreferences": "DSH Sync 設定",
+    "targetsRisk": "モデルやプラグインの同期は設定情報の露出や攻撃対象の拡大につながります。続けますか？",
+    "targetsUpgradeConsent": "確認後、DSH オプションの同期を開始します。",
+    "targetsModelsHelp": "認証情報とカスタムヘッダーを除くプロバイダー・モデル設定を同期します。受信した変更はローカルで確認します。",
+    "targetsUnavailable": "Host の設定を利用できません。",
+    "modelsPending": "モデル変更の確認",
+    "modelsApplyWarning": "新しい API 接続先に会話や既存の認証情報が送信される場合があります。",
+    "modelsApply": "確認して適用",
+    "modelsBefore": "現在の上書き",
+    "modelsAfter": "受信した上書き",
+    "modelsResetWarning": "省略された上書きはローカルの既定値に戻ります。プロバイダーのリセットは認証情報の参照も戻しますが、保存済みのキーは削除しません。",
     "pluginsTitle": "プラグインの復元",
     "pluginsPending": "対応待ちのプラグイン",
     "pluginsInstalling": "プラグインをインストール中…",
     "sidebarHelpPlugins": "差分を確認し、このデバイスへのインストールを承認します。",
-    "pluginsWarning": "Host プラグインのインストールと有効化は、ユーザーがアクセスできるデータにアクセス可能なコードを実行します。許可済みのインストールスクリプトは実行される場合があります。新しいスクリプト許可やバージョンの例外は付与しません。",
-    "pluginsManualHelp": "バージョンや取得元が異なる場合は DSH プラグインマネージャーを使用してください。自動更新、ダウングレード、アンインストールは行いません。",
+    "pluginsWarning": "プラグインはコードを実行し、ローカルデータにアクセスします。信頼できるものだけをインストールしてください。",
+    "pluginsManualHelp": "未インストールのプラグインと有効化状態を復元します。異なるバージョンや取得元はプラグインマネージャーで処理してください。既存のスクリプト許可は有効です。",
     "pluginsLoading": "プラグインの差分を確認中…",
     "pluginsLoadFailed": "差分を確認できませんでした。更新して再試行してください。",
     "pluginsActionFailed": "操作を完了できませんでした。再試行前に更新して結果を確認してください。",
@@ -844,11 +856,11 @@ window.__ModuleLoader__.load({
     "pluginsIgnored": "このデバイスでは無視",
     "pluginsManual": "DSH プラグインマネージャーでの操作が必要です。",
     "pluginsBuildBlocked": "DSH プラグインマネージャーでスクリプトの許可が必要です。",
-    "pluginsIncompatible": "現在の DSH と互換性がありません。プラグインマネージャーで確認してください。例外は付与していません。",
+    "pluginsIncompatible": "現在の DSH と互換性がありません。プラグインマネージャーで確認してください。",
     "pluginsRestart": "適用を完了するには DSH を再起動してください。",
     "pluginsFailed": "プラグインの操作に失敗しました。再試行前に状態を確認してください。",
-    "pluginsIgnore": "このデバイスでこの項目を無視",
-    "pluginsInstall": "選択したプラグインをインストールして状態を適用",
+    "pluginsIgnore": "このデバイスで無視",
+    "pluginsInstall": "選択項目を確認して適用",
     "pluginsLater": "後で",
     "pluginsManage": "詳細管理"
   }
@@ -911,6 +923,29 @@ window.__ModuleLoader__.load({
 .dsh-sync .ds-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.dsh-sync .ds-settings-heading h2{margin:0}
 @media(max-width:560px){.dsh-sync-sidebar-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:8px}}
 `;
+        function helpButton(label, message, disabled = false) {
+          return h(Tooltip, { label: t(message), openOnClick: true, delayMs: 500, focusDelayMs: 500,
+            side: 'bottom', maxWidth: 360, portal: false, disabled },
+          h('button', { type: 'button', className: 'ds-help', 'aria-label': t(label) + ': ' + t('help') }, '?'));
+        }
+        function useHelpScrolling() {
+          const [scrolling, setScrolling] = React.useState(false);
+          React.useEffect(() => {
+            let timer = null;
+            const scroll = event => {
+              if (event.target?.closest?.('[role="tooltip"]')) return;
+              setScrolling(true);
+              if (timer !== null) clearTimeout(timer);
+              timer = setTimeout(() => { timer = null; setScrolling(false); }, 150);
+            };
+            document.addEventListener('scroll', scroll, true);
+            return () => {
+              document.removeEventListener('scroll', scroll, true);
+              if (timer !== null) clearTimeout(timer);
+            };
+          }, []);
+          return scrolling;
+        }
         function validSummary(value) {
           const validError = error => error === null || (error && typeof error.code === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(error.code));
           return value && validError(value.error) && typeof value.auth?.pending === 'boolean' && validError(value.auth.error) &&
@@ -953,12 +988,13 @@ window.__ModuleLoader__.load({
               ['id', 'name', 'version', 'source', 'kind', 'fingerprint'].every(key => typeof item[key] === 'string') &&
               typeof item.enabled === 'boolean' && typeof item.canInstall === 'boolean');
         }
-        function PluginRestore({ onClose, onManage, onStatusChange } = {}) {
+        function PluginRestore({ onClose, onManage, onStatusChange, helpDisabled = false } = {}) {
           React.useSyncExternalStore(callback => ctx.locale.subscribe(callback), () => ctx.locale.getSnapshot(), () => ctx.locale.getSnapshot());
           const [view, setView] = React.useState(null);
           const [selection, setSelection] = React.useState({});
           const [error, setError] = React.useState('');
           const [pending, setPending] = React.useState(false);
+          const helpScrolling = useHelpScrolling();
           const alive = React.useRef(false);
           const refreshRequest = React.useRef(null);
           const mutation = React.useRef(false);
@@ -1026,9 +1062,7 @@ window.__ModuleLoader__.load({
             ignored: 'pluginsIgnored', 'build-blocked': 'pluginsBuildBlocked', 'incompatible-version': 'pluginsIncompatible', 'restart-required': 'pluginsRestart', failed: 'pluginsFailed',
           }[item.kind] || 'pluginsManual');
           return h('section', { className: 'dsh-sync ds-plugin-restore', 'aria-label': t('pluginsTitle') }, h('style', null, styles),
-            h('h2', null, t('pluginsTitle')),
-            h('p', { className: 'ds-warning' }, t('pluginsWarning')),
-            h('p', { className: 'ds-muted' }, t('pluginsManualHelp')),
+            h('h2', null, t('pluginsTitle'), helpButton('pluginsTitle', 'pluginsManualHelp', helpDisabled || helpScrolling)),
             error && h('p', { role: 'alert', className: 'ds-error' }, t(error)),
             !view && !error && h('p', { role: 'status' }, t('pluginsLoading')),
             view && (!view.enabled || !view.available) && h('p', { className: 'ds-warning' }, t(view.enabled ? 'pluginsUnavailable' : 'pluginsDisabled')),
@@ -1046,6 +1080,7 @@ window.__ModuleLoader__.load({
                 h('p', { className: 'ds-muted' }, t(outcome(item))),
                 h('button', { type: 'button', disabled: busy,
                   onClick: () => act('plugins-ignore', { id: item.id, fingerprint: item.fingerprint }) }, t('pluginsIgnore'))))),
+            choices.length > 0 && h('p', { className: 'ds-warning' }, t('pluginsWarning')),
             h('div', { className: 'ds-actions' },
               h('button', { type: 'button', className: 'ds-primary', disabled: busy || !view?.enabled || !view?.available || !choices.length,
                 onClick: () => act('plugins-install', { choices }) }, t('pluginsInstall')),
@@ -1151,7 +1186,7 @@ window.__ModuleLoader__.load({
           const [loginUrl, setLoginUrl] = React.useState('');
           const [recoveryCopyStatus, setRecoveryCopyStatus] = React.useState('');
           const [activeTab, setActiveTab] = React.useState(initialTab);
-          const [helpScrolling, setHelpScrolling] = React.useState(false);
+          const helpScrolling = useHelpScrolling();
           const settingsId = React.useId();
           const recoveryDialog = React.useRef(null);
           const trackingDialog = React.useRef(null);
@@ -1244,21 +1279,6 @@ window.__ModuleLoader__.load({
             };
           }, []);
           React.useEffect(() => {
-            let timer = null;
-            const scroll = event => {
-              // Reading a pinned bubble's own overflow must not dismiss it.
-              if (event.target?.closest?.('[role="tooltip"]')) return;
-              setHelpScrolling(true);
-              if (timer !== null) clearTimeout(timer);
-              timer = setTimeout(() => { timer = null; setHelpScrolling(false); }, 150);
-            };
-            document.addEventListener('scroll', scroll, true);
-            return () => {
-              document.removeEventListener('scroll', scroll, true);
-              if (timer !== null) clearTimeout(timer);
-            };
-          }, []);
-          React.useEffect(() => {
             const dialog = recoveryDialog.current;
             if (!dialog || !recovery) return;
             // The native top layer is independent of the settings scroll position.
@@ -1330,11 +1350,10 @@ window.__ModuleLoader__.load({
           }
           const panel = (tab, ...children) => h('div', { key: tab, className: 'ds-panel', role: 'tabpanel',
             id: settingsId + '-panel-' + tab, 'aria-labelledby': settingsId + '-tab-' + tab, hidden: activeTab !== tab, tabIndex: 0 }, ...children);
-          const help = (label, message, tab) => h(Tooltip, { label: t(message), openOnClick: true, delayMs: 500, focusDelayMs: 500,
-            side: 'bottom', maxWidth: 360, portal: false, disabled: activeTab !== tab || !!recovery || trackingConfirmation || helpScrolling },
-            h('button', { type: 'button', className: 'ds-help', 'aria-label': t(label) + ': ' + t('help') }, '?'));
+          const help = (label, message, tab) => helpButton(label, message, activeTab !== tab || !!recovery || trackingConfirmation || helpScrolling);
           const cardHelp = { connection: ['applicationHelp', 'overview'], setup: ['setupHelp', 'overview'],
-            assets: ['trackingHelp', 'assets'], conflicts: ['conflictsHelp', 'conflicts'], backups: ['backupsHelp', 'backups'] };
+            assets: ['trackingHelp', 'assets'], conflicts: ['conflictsHelp', 'conflicts'], backups: ['backupsHelp', 'backups'],
+            tabTargets: ['targetsPolicyHelp', 'targets'], modelsPending: ['modelsResetWarning', 'targets'] };
           const card = (title, ...children) => h('section', { className: 'ds-card' }, h('h3', null, t(title),
             cardHelp[title] && help(title, ...cardHelp[title])), ...children);
           const text = (key, className = 'ds-muted') => h('p', { className }, t(key));
@@ -1343,7 +1362,8 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ds-option' }, h('label', { htmlFor: settingsId + '-field-' + key }, t(key)),
               helpMessage && help(key, helpMessage, status?.initialized ? 'security' : 'overview')),
             h('input', { id: settingsId + '-field-' + key, value, onChange: event => onChange(event.target.value), disabled, ...props }));
-          const optionHelp = { autoSync: ['autoHelp', 'overview'], deviceTrustRemember: ['deviceTrustHelp', 'security'], trackingAgentsEnabled: ['trackingAgentsHelp', 'assets'] };
+          const optionHelp = { autoSync: ['autoHelp', 'overview'], deviceTrustRemember: ['deviceTrustHelp', 'security'], trackingAgentsEnabled: ['trackingAgentsHelp', 'assets'],
+            syncConfig: ['syncConfigHelp', 'targets'], targetSettings: ['targetsScopeHelp', 'targets'], targetModels: ['targetsModelsHelp', 'targets'], targetPlugins: ['pluginsManualHelp', 'targets'] };
           const checkbox = (key, checked, onChange, unavailable = false) => h('div', { className: 'ds-option' },
             h('label', { className: 'ds-check' }, h('input', { type: 'checkbox', checked: !!checked, onChange: event => onChange(event.target.checked), disabled: disabled || unavailable }), t(key)),
             optionHelp[key] && help(key, ...optionHelp[key]));
@@ -1419,7 +1439,8 @@ window.__ModuleLoader__.load({
           }
           const conflicts = status?.conflicts || [];
           const validChoices = conflicts.length > 0 && conflicts.every(item => choices[item.id]?.localHash === item.localHash && choices[item.id]?.remoteHash === item.remoteHash);
-          const typeName = type => t({ prompt: 'typePrompt', skill: 'typeSkill', settings: 'targetSettings', 'model-config': 'targetModels' }[type] || 'assets');
+          const typeName = type => t({ prompt: 'typePrompt', skill: 'typeSkill', settings: 'targetSettings', 'model-config': 'targetModels',
+            'sync-control': 'typeSyncControl', 'sync-preferences': 'typeSyncPreferences' }[type] || 'assets');
           const phaseName = phase => t({ idle: 'phaseIdle', syncing: 'phaseSyncing', synced: 'phaseSynced', pending: 'phasePending', conflict: 'phaseConflict', locked: 'phaseLocked', error: 'phaseError' }[phase] || 'phaseUnknown');
           const date = value => value ? new Date(value).toLocaleString(locale.active === 'zh' ? 'zh-CN' : locale.active) : t('never');
           return h('div', { className: 'dsh-sync', 'aria-busy': pending },
@@ -1448,7 +1469,7 @@ window.__ModuleLoader__.load({
               onCancel: event => { event.preventDefault(); cancelTrackingConfirmation(); },
               onKeyDownCapture: event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancelTrackingConfirmation(); } } },
               h('h2', { id: 'dsh-sync-tracking-confirm-title' }, t(confirm.kind === 'targets' ? 'targetsConfirmTitle' : confirm.kind === 'agents-enable' ? 'trackingAgentsTitle' : confirm.kind === 'restore' ? 'restoreTitle' : 'trackingExcludeTitle')),
-              confirm.kind === 'targets' ? h(React.Fragment, null, text('targetsScopeHelp'), text('targetsRisk', 'ds-warning')) :
+              confirm.kind === 'targets' ? text('targetsRisk', 'ds-warning') :
                 confirm.kind === 'agents-enable' ? h(React.Fragment, null, text('trackingAgentsWarning', 'ds-warning'), text('trackingAgentsHelp')) :
                 confirm.kind === 'restore' ? text('restoreConfirm', 'ds-warning') :
                 h(React.Fragment, null, h('strong', null, confirm.name), h('p', { className: 'ds-muted' }, trackingOrigin(confirm.origin)),
@@ -1500,7 +1521,8 @@ window.__ModuleLoader__.load({
                 row('directory', status.dataDirectory || '—'), text('localWarning', 'ds-warning'),
                 checkbox('autoSync', status.settings?.enabled, enabled => run('configure', { enabled })),
                 h('div', { className: 'ds-actions' }, button('sync', () => run('sync'), !status.signedIn || status.locked, true), button('refresh', refresh)))),
-              panel('targets', card('tabTargets', text('targetsScopeHelp'), text('targetsPolicyHelp'),
+              panel('targets', card('tabTargets',
+                checkbox('syncConfig', status.targets?.syncConfigEnabled ?? true, enabled => run('preferences-configure', { enabled })),
                 status.targets?.needsConsent && h('div', { className: 'ds-warning' }, text('targetsUpgradeConsent'),
                   button('targetsConfirm', () => setConfirm({ kind: 'targets', enabled: status.targets.enabled }))),
                 ...[['prompt', 'targetPrompts'], ['skill', 'targetSkills'], ['settings', 'targetSettings'], ['model-config', 'targetModels'], ['plugins', 'targetPlugins']].map(([key, label]) =>
@@ -1509,11 +1531,11 @@ window.__ModuleLoader__.load({
                     if (status.targets?.needsConsent || (value && ['model-config', 'plugins'].includes(key))) setConfirm({ kind: 'targets', enabled });
                     else run('targets-configure', { enabled });
                   })),
-                text('targetsRisk', 'ds-warning'), text('targetsModelsHelp'),
+
                 status.targets?.settingsAvailable === false && text('targetsUnavailable', 'ds-warning')),
-                activeTab === 'targets' && status.targets?.enabled?.plugins && h(PluginRestore, { onStatusChange }),
+                activeTab === 'targets' && status.targets?.enabled?.plugins && h(PluginRestore, { onStatusChange, helpDisabled: !!recovery || trackingConfirmation || helpScrolling }),
                 ...(status.targets?.pendingModels || []).map(item => card('modelsPending', h('strong', null, item.name), text('modelsApplyWarning', 'ds-warning'),
-                  text('modelsResetWarning', 'ds-warning'),
+
                   h('h4', null, t('modelsBefore')), h('pre', { className: 'ds-key' }, JSON.stringify(item.previous ?? {}, null, 2)),
                   h('h4', null, t('modelsAfter')), h('pre', { className: 'ds-key' }, JSON.stringify(item.values, null, 2)),
                   button('modelsApply', () => run('model-apply', { id: item.id, fingerprint: item.fingerprint }), false, true)))),
