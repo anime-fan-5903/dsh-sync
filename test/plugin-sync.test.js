@@ -69,6 +69,84 @@ test('remote apply never installs and missing desired records survive scans and 
   await restarted.dispose();
 });
 
+const builtinName = '@deepseek-ai/dsh-experimental-auto-review';
+const builtinRow = (extra = {}) => row(builtinName, '0.2.2-rc.1', {
+  source: undefined, installed: false, availability: 'installation', official: true, optional: true, ...extra,
+});
+const builtinAsset = enabled => pluginAsset(builtinName, null, enabled, 'builtin');
+
+test('built-in declarations contain activation only and reject versions or extra authority', () => {
+  const asset = builtinAsset(false);
+  assert.equal(validatePlugin(asset), asset);
+  assert.equal(asset.id, pluginId(builtinName));
+  for (const edit of [{ version: '0.2.2-rc.1' }, { source: 'installation' }, { source: 'registry' }, { optional: true }, { enabled: null }]) {
+    assert.throws(() => validatePlugin({ ...asset, ...edit }), { code: 'invalid-data' });
+  }
+});
+
+test('capture includes only manageable shipped official optional switches without Host version churn', async t => {
+  const { sync, manager } = await fixture(t, [builtinRow(),
+    builtinRow({ name: 'core', optional: false }), builtinRow({ name: 'third-party', official: false }),
+    builtinRow({ name: 'catalog', availability: 'missing' }), builtinRow({ name: 'broken', error: { code: 'not-bundle' } }),
+    builtinRow({ name: 'readonly', readOnlyReason: 'management-required' }),
+  ]);
+  assert.deepEqual(await sync.capture(), [builtinAsset(true)]);
+  manager.rows[0].version = '0.3.0';
+  assert.deepEqual(await sync.capture(), [builtinAsset(true)]);
+  manager.rows[0].enabled = false;
+  assert.deepEqual(await sync.capture(), [builtinAsset(false)]);
+});
+
+test('built-in activation waits for exact local confirmation and never installs a package', async t => {
+  const { sync, manager, calls, directory } = await fixture(t, [builtinRow({ enabled: false })]);
+  await sync.capture();
+  await sync.apply([builtinAsset(true)]);
+  assert.deepEqual(await sync.capture(), [builtinAsset(true)]);
+  assert.deepEqual(calls, []);
+  assert.equal(sync.status().items[0].kind, 'activation');
+  assert.equal(sync.status().items[0].canInstall, true);
+  await sync.install([choice(sync)]);
+  assert.deepEqual(calls, [{ method: 'setBundleEnabled', name: builtinName, enabled: true }]);
+  assert.equal(sync.summary().pendingCount, 0);
+  await sync.capture();
+  await sync.apply([builtinAsset(false)]);
+  const stale = choice(sync); manager.rows[0].enabled = false;
+  await assert.rejects(sync.install([stale]), { code: 'stale-choice' });
+  manager.rows[0].enabled = true;
+  await sync.capture();
+  manager.setBundleEnabled = async (_name, enabled) => { manager.rows[0].enabled = enabled; return { application: 'restart-required' }; };
+  await sync.install([choice(sync)]);
+  assert.equal(sync.summary().restartRequiredCount, 1);
+  const restarted = new PluginSync({ directory, manager }); await restarted.start();
+  assert.equal(restarted.summary().pendingCount, 0); await restarted.dispose();
+});
+
+test('missing, core, read-only and wrong-source built-ins cannot authorize installation or activation', async t => {
+  for (const actual of [null, builtinRow({ optional: false }), builtinRow({ readOnlyReason: 'management-required' }),
+    builtinRow({ error: { code: 'incompatible-version' } }), row(builtinName)]) {
+    const { sync, calls } = await fixture(t, actual ? [actual] : []);
+    await sync.apply([builtinAsset(false)]);
+    assert.equal(sync.status().items[0].canInstall, false);
+    await assert.rejects(sync.install([choice(sync)]), { code: 'manual-required' });
+    assert.deepEqual(calls, []);
+    assert.deepEqual(await sync.capture(), [builtinAsset(false)]);
+  }
+  const { sync, calls } = await fixture(t, [builtinRow({ enabled: false })]);
+  await sync.apply([pluginAsset(builtinName, '0.2.2-rc.1', true)]);
+  assert.equal(sync.status().items[0].kind, 'source-difference');
+  assert.equal(sync.status().items[0].canInstall, false); assert.deepEqual(calls, []);
+});
+
+test('built-in activation detects local edits during publication and verifies manager results', async t => {
+  const { sync, manager } = await fixture(t, [builtinRow({ enabled: false })]);
+  const selected = await sync.capture(); manager.rows[0].enabled = true;
+  await assert.rejects(sync.apply(selected), { code: 'local-changed' });
+  await sync.capture(); await sync.apply([builtinAsset(false)]);
+  manager.setBundleEnabled = async () => ({ application: 'applied' });
+  await sync.install([choice(sync)]);
+  assert.equal(sync.status().items[0].code, 'failed');
+});
+
 test('capture exports only eligible registry bundles and detects new local installations', async t => {
   const { sync, manager } = await fixture(t, [
     row('registry-plugin'), row('@example/scoped', '2.3.4'), row('dsh-sync'),

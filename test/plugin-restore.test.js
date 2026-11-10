@@ -13,7 +13,7 @@ const base = { enabled: true, available: true, pendingCount: 1, items: [item], p
 function deferred() { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; }
 
 // Run the registered child component with isolated hooks; no real plugin manager or React dependencies.
-function harness() {
+function harness({ dialog = true } = {}) {
   let definition, current, nextTimer = 0, activeLocale = 'en', closed = 0, managed = 0, notified = 0;
   const dictionaries = {}, slots = new Map(), disposers = [], listeners = new Set();
   const calls = [], replies = [], gets = [], intervals = new Map(), timeouts = new Map();
@@ -74,7 +74,7 @@ function harness() {
   sidebar.states[0] = { phase: 'synced', signedIn: true, initialized: true, settings: { enabled: true }, tracking: { issueCount: 0 }, lastSync: '2026-11-10T00:00:00Z', plugins: { pendingCount: 1 } };
   flatten(sidebar.render()).find(node => node.type === 'button').props.onClick();
   const Component = flatten(sidebar.render()).find(node => node.type?.name === 'PluginRestore').type;
-  const panel = runner(Component, { onClose() { closed++; }, onManage() { managed++; }, onStatusChange() { notified++; } });
+  const panel = runner(Component, { ...(dialog ? { onClose() { closed++; } } : {}), onManage() { managed++; }, onStatusChange() { notified++; } });
   const button = key => { const value = flatten(panel.render()).find(node => node.type === 'button' && node.children.includes(en[key])); assert.ok(value, key); return value; };
   return {
     calls, replies, gets, panel, document, events, intervals, timeouts, listeners, slots, button,
@@ -120,6 +120,59 @@ test('restoration polls only metadata and submits exact displayed eligible choic
   assert.equal(posts.length, 1);
   assert.deepEqual(JSON.parse(posts[0].options.body), { action: 'plugins-install', choices: [{ id: item.id, fingerprint: item.fingerprint }] });
   assert.equal(app.notified, 1); app.dispose();
+});
+
+test('successful selected application closes the dialog only after completion and refreshes sidebar status', async () => {
+  const app = harness(), pending = deferred(); await app.mount();
+  app.replies.push(() => pending.promise);
+  const reads = app.calls.filter(call => call.options.method === 'GET').length;
+  const action = app.button('pluginsInstall').props.onClick();
+  assert.equal(app.closed, 0); assert.equal(app.notified, 0);
+  pending.resolve(success({ available: true, progress: null, pendingCount: 1, items: [
+    { ...item, kind: 'installed', code: 'applied', canInstall: false },
+    { ...item, id: 'manual', kind: 'source-difference', canInstall: false },
+  ] }));
+  await action; await flush();
+  assert.equal(app.closed, 1); assert.equal(app.notified, 1);
+  assert.equal(app.calls.filter(call => call.options.method === 'GET').length, reads);
+  app.dispose();
+});
+
+test('successful application in embedded settings refreshes without a close callback', async () => {
+  const app = harness({ dialog: false }); await app.mount();
+  const reads = app.calls.filter(call => call.options.method === 'GET').length;
+  app.replies.push(success({ available: true, progress: null, items: [{ ...item, kind: 'installed', code: 'applied' }] }));
+  await app.button('pluginsInstall').props.onClick(); await flush();
+  assert.equal(app.closed, 0); assert.equal(app.notified, 1);
+  assert.equal(app.calls.filter(call => call.options.method === 'GET').length, reads + 1);
+  app.dispose();
+});
+
+for (const result of [
+  {}, { available: true, items: [] },
+  { available: true, items: [{ ...item, id: 'unrelated', kind: 'installed', code: 'applied' }] },
+  ...['failed', 'build-blocked', 'incompatible-version', 'restart-required'].map(code =>
+    ({ available: true, items: [{ ...item, kind: 'installed', code }] })),
+]) {
+  test('incomplete or unsuccessful application results keep the dialog open', async () => {
+    const app = harness(); await app.mount(); app.replies.push(success(result));
+    await app.button('pluginsInstall').props.onClick(); await flush();
+    assert.equal(app.closed, 0); assert.equal(app.notified, 1); app.dispose();
+  });
+}
+
+test('built-in activation renders without a pinned version and confirms only available switches', async () => {
+  const app = harness();
+  const builtin = { ...item, name: '@deepseek-ai/dsh-experimental-auto-review', source: 'builtin', version: null, kind: 'activation' };
+  app.gets.push(success({ ...base, pendingCount: 2, items: [builtin, { ...builtin, id: 'unavailable', kind: 'missing', canInstall: false }] }));
+  await app.mount();
+  assert.ok(app.text().includes(en.pluginsBuiltin)); assert.ok(app.text().includes(en.pluginsBuiltinMissing));
+  assert.ok(!app.text().includes('@ null'));
+  assert.equal(app.boxes()[0].props.checked, true); assert.equal(app.boxes()[1].props.disabled, true);
+  await app.button('pluginsInstall').props.onClick(); await flush();
+  assert.deepEqual(JSON.parse(app.calls.find(call => call.options.method === 'POST').options.body).choices,
+    [{ id: builtin.id, fingerprint: builtin.fingerprint }]);
+  app.dispose();
 });
 
 test('refresh retains choices only for the same fingerprint and submits the new exact revision', async () => {

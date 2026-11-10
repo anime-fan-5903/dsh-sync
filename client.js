@@ -265,7 +265,9 @@ window.__ModuleLoader__.load({
     "pluginsInstalling": "Installing plugins…",
     "sidebarHelpPlugins": "Open to review plugin differences and confirm installation on this device.",
     "pluginsWarning": "Plugins run code with access to local data. Install only plugins you trust.",
-    "pluginsManualHelp": "Restore missing plugins and their enablement. Use the plugin manager for different versions or sources; existing script permissions still apply.",
+    "pluginsManualHelp": "Restore registry plugins and enablement of official built-in optional plugins. Changes require local confirmation and may affect active sessions. Use the plugin manager for different versions or sources; existing script permissions still apply.",
+    "pluginsBuiltin": "Built-in optional plugin",
+    "pluginsBuiltinMissing": "Not provided by this DSH installation. Manage it in DSH; sync will not install it.",
     "pluginsLoading": "Checking plugin differences…",
     "pluginsLoadFailed": "Plugin differences could not be checked. Refresh to retry.",
     "pluginsActionFailed": "The operation could not be completed. Refresh to check its outcome before retrying.",
@@ -551,7 +553,9 @@ window.__ModuleLoader__.load({
     "pluginsInstalling": "正在安装插件…",
     "sidebarHelpPlugins": "点击查看插件差异，并在本设备快捷确认安装。",
     "pluginsWarning": "插件可执行代码并访问本机数据，请仅安装可信插件。",
-    "pluginsManualHelp": "恢复缺失插件及启用状态。版本或来源不同请在插件管理器中处理；已有脚本授权仍有效。",
+    "pluginsManualHelp": "恢复 registry 插件及官方内置可选插件的开关。变更需本机确认，可能影响活动会话。版本或来源不同请在插件管理器中处理；已有脚本授权仍有效。",
+    "pluginsBuiltin": "内置可选插件",
+    "pluginsBuiltinMissing": "当前 DSH 安装未提供此插件。请在 DSH 中管理，同步不会安装它。",
     "pluginsLoading": "正在检查插件差异…",
     "pluginsLoadFailed": "无法检查插件差异，请刷新重试。",
     "pluginsActionFailed": "操作未能完成。请先刷新核对结果，再决定是否重试。",
@@ -837,7 +841,9 @@ window.__ModuleLoader__.load({
     "pluginsInstalling": "プラグインをインストール中…",
     "sidebarHelpPlugins": "差分を確認し、このデバイスへのインストールを承認します。",
     "pluginsWarning": "プラグインはコードを実行し、ローカルデータにアクセスします。信頼できるものだけをインストールしてください。",
-    "pluginsManualHelp": "未インストールのプラグインと有効化状態を復元します。異なるバージョンや取得元はプラグインマネージャーで処理してください。既存のスクリプト許可は有効です。",
+    "pluginsManualHelp": "registry プラグインと公式組み込みオプションの有効化状態を復元します。変更にはローカルでの確認が必要で、実行中のセッションに影響する場合があります。異なるバージョンや取得元はプラグインマネージャーで処理してください。既存のスクリプト許可は有効です。",
+    "pluginsBuiltin": "組み込みオプションプラグイン",
+    "pluginsBuiltinMissing": "現在の DSH に含まれていません。DSH で管理してください。同期によるインストールは行いません。",
     "pluginsLoading": "プラグインの差分を確認中…",
     "pluginsLoadFailed": "差分を確認できませんでした。更新して再試行してください。",
     "pluginsActionFailed": "操作を完了できませんでした。再試行前に更新して結果を確認してください。",
@@ -985,7 +991,8 @@ window.__ModuleLoader__.load({
           return value && typeof value.enabled === 'boolean' && typeof value.available === 'boolean' &&
             Number.isInteger(value.pendingCount) && value.pendingCount >= 0 && validPluginProgress(value.progress) &&
             Array.isArray(value.items) && value.items.every(item => item &&
-              ['id', 'name', 'version', 'source', 'kind', 'fingerprint'].every(key => typeof item[key] === 'string') &&
+              ['id', 'name', 'source', 'kind', 'fingerprint'].every(key => typeof item[key] === 'string') &&
+              ((item.source === 'builtin' && item.version === null) || (item.source === 'registry' && typeof item.version === 'string')) &&
               typeof item.enabled === 'boolean' && typeof item.canInstall === 'boolean');
         }
         function PluginRestore({ onClose, onManage, onStatusChange, helpDisabled = false } = {}) {
@@ -1036,6 +1043,7 @@ window.__ModuleLoader__.load({
           async function act(action, input) {
             if (mutation.current) return;
             mutation.current = true; setPending(true); setError('');
+            let closeAfterApply = false;
             try {
               // Closing the panel does not cancel an installation authorized on this device.
               const response = await fetch('/api/dsh-sync', { method: 'POST', credentials: 'same-origin', cache: 'no-store',
@@ -1044,12 +1052,19 @@ window.__ModuleLoader__.load({
               if (!response.ok || data?.ok !== true) {
                 const code = data?.error?.code;
                 if (alive.current) setError(['stale-choice', 'stale-approval', 'plugin-plan-stale', 'plugin-choice-stale', 'stale-fingerprint'].includes(code) ? 'pluginsStale' : 'pluginsActionFailed');
+              } else if (action === 'plugins-install' && data.value?.available === true && !data.value.progress && Array.isArray(data.value.items)) {
+                closeAfterApply = input.choices.every(choice => data.value.items.some(item =>
+                  item.id === choice.id && item.kind === 'installed' && item.code === 'applied'));
               }
             } catch {
               if (alive.current) setError('pluginsActionFailed');
             } finally {
               mutation.current = false;
-              if (alive.current) { setPending(false); refreshRequest.current?.(); onStatusChange?.(); }
+              if (alive.current) {
+                setPending(false); onStatusChange?.();
+                if (closeAfterApply && onClose) onClose();
+                else refreshRequest.current?.();
+              }
             }
           }
           const busy = pending || !!view?.progress;
@@ -1057,7 +1072,7 @@ window.__ModuleLoader__.load({
             .map(item => ({ id: item.id, fingerprint: item.fingerprint }));
           const outcome = item => ({ 'build-blocked': 'pluginsBuildBlocked', 'incompatible-version': 'pluginsIncompatible',
             'restart-required': 'pluginsRestart', failed: 'pluginsFailed' }[item.code] || {
-            missing: 'pluginsMissing', activation: 'pluginsActivation', 'version-difference': 'pluginsVersionDifference', 'version-mismatch': 'pluginsVersionDifference',
+            missing: item.source === 'builtin' ? 'pluginsBuiltinMissing' : 'pluginsMissing', activation: 'pluginsActivation', 'version-difference': 'pluginsVersionDifference', 'version-mismatch': 'pluginsVersionDifference',
             'source-difference': 'pluginsSourceDifference', 'source-mismatch': 'pluginsSourceDifference', current: 'pluginsCurrent', installed: 'pluginsCurrent',
             ignored: 'pluginsIgnored', 'build-blocked': 'pluginsBuildBlocked', 'incompatible-version': 'pluginsIncompatible', 'restart-required': 'pluginsRestart', failed: 'pluginsFailed',
           }[item.kind] || 'pluginsManual');
@@ -1074,8 +1089,8 @@ window.__ModuleLoader__.load({
                 .map(item => h('div', { key: item.id, className: 'ds-tracking-item' },
                 h('label', { className: 'ds-check' }, h('input', { type: 'checkbox', checked: !!selection[item.id]?.checked && selection[item.id]?.fingerprint === item.fingerprint,
                   disabled: busy || !item.canInstall, onChange: event => setSelection(previous => ({ ...previous, [item.id]: { fingerprint: item.fingerprint, checked: event.target.checked } })) }),
-                  `${item.name} @ ${item.version}`),
-                h('p', null, `${t('pluginsSource')}: ${item.source} · ${t(item.enabled ? 'pluginsEnabled' : 'pluginsNotEnabled')}`),
+                  item.source === 'builtin' ? item.name : `${item.name} @ ${item.version}`),
+                h('p', null, `${t('pluginsSource')}: ${item.source === 'builtin' ? t('pluginsBuiltin') : item.source} · ${t(item.enabled ? 'pluginsEnabled' : 'pluginsNotEnabled')}`),
                 item.localVersion && h('p', null, `${t('pluginsLocalVersion')}: ${item.localVersion}`),
                 h('p', { className: 'ds-muted' }, t(outcome(item))),
                 h('button', { type: 'button', disabled: busy,

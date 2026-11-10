@@ -29,13 +29,14 @@ export function pluginId(name) {
   const hex = bytes.toString('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
-export function pluginAsset(name, version, enabled) {
-  return validatePlugin({ id: pluginId(name), type: 'plugins', name, version, enabled, source: 'registry' });
+export function pluginAsset(name, version, enabled, source = 'registry') {
+  return validatePlugin({ id: pluginId(name), type: 'plugins', name, version, enabled, source });
 }
 export function validatePlugin(asset) {
   check(object(asset) && Object.keys(asset).length === 6 && Object.keys(asset).every(key => ['id', 'type', 'name', 'version', 'enabled', 'source'].includes(key)));
-  check(validName(asset.name) && validVersion(asset.version) && typeof asset.enabled === 'boolean');
-  check(asset.type === 'plugins' && asset.source === 'registry' && asset.id === pluginId(asset.name));
+  check(validName(asset.name) && typeof asset.enabled === 'boolean');
+  check((asset.source === 'registry' && validVersion(asset.version)) || (asset.source === 'builtin' && asset.version === null));
+  check(asset.type === 'plugins' && asset.id === pluginId(asset.name));
   return asset;
 }
 function registrySource(name, source) {
@@ -46,12 +47,14 @@ function registrySource(name, source) {
 }
 function localRecord(row) {
   const registry = registrySource(row.name, row.source);
-  const exportable = registry && row.availability === 'profile' && !row.error && !row.readOnlyReason && validVersion(row.version) && typeof row.enabled === 'boolean';
+  const builtin = row.official === true && row.optional === true && row.availability === 'installation';
+  const exportable = (builtin || (registry && row.availability === 'profile' && validVersion(row.version))) &&
+    !row.error && !row.readOnlyReason && typeof row.enabled === 'boolean';
   return {
     name: row.name,
-    version: validVersion(row.version) ? row.version : null,
+    version: !builtin && validVersion(row.version) ? row.version : null,
     enabled: typeof row.enabled === 'boolean' ? row.enabled : null,
-    source: registry ? 'registry' : 'unsupported',
+    source: builtin ? 'builtin' : registry ? 'registry' : 'unsupported',
     sourceHash: hash(typeof row.source === 'string' ? row.source : null),
     exportable,
   };
@@ -112,7 +115,7 @@ export class PluginSync {
       let changed = false;
       if (this.available) for (const [id, result] of Object.entries(this.state.results)) {
         const desired = this.state.desired[id]; const local = this.local.get(id);
-        if (result.code === 'restart-required' && desired && local?.exportable && local.version === desired.version && local.enabled === desired.enabled) {
+        if (result.code === 'restart-required' && desired && local?.exportable && local.source === desired.source && local.version === desired.version && local.enabled === desired.enabled) {
           delete this.state.results[id]; changed = true;
         }
       }
@@ -138,11 +141,11 @@ export class PluginSync {
   publish() {
     const items = Object.values(this.state.desired).sort((a, b) => a.name.localeCompare(b.name)).map(asset => {
       const local = this.local.get(asset.id); const fingerprint = this.fingerprint(asset);
-      let kind = !local ? 'missing' : !local.exportable ? 'source-difference' : local.version !== asset.version ? 'version-difference' : local.enabled !== asset.enabled ? 'activation' : 'installed';
+      let kind = !local ? 'missing' : !local.exportable || local.source !== asset.source ? 'source-difference' : local.version !== asset.version ? 'version-difference' : local.enabled !== asset.enabled ? 'activation' : 'installed';
       const result = this.state.results[asset.id];
       const code = result?.fingerprint === fingerprint ? result.code : undefined;
       if (this.state.ignored[asset.id] === fingerprint && (kind !== 'installed' || pendingOutcome(code))) kind = 'ignored';
-      const canInstall = this.available && (kind === 'missing' || kind === 'activation') && code !== 'restart-required' &&
+      const canInstall = this.available && ((kind === 'missing' && asset.source === 'registry') || kind === 'activation') && code !== 'restart-required' &&
         typeof this.manager?.[kind === 'missing' ? 'installBundle' : 'setBundleEnabled'] === 'function';
       const { id, name, version, enabled, source } = asset;
       return { id, name, version, enabled, source, kind, fingerprint, ...(local?.version ? { localVersion: local.version } : {}), ...(code ? { code } : {}), canInstall };
@@ -166,7 +169,7 @@ export class PluginSync {
       for (const [id, local] of this.local) {
         const actual = hash(local);
         if (local.exportable && this.state.observed[id] !== actual) {
-          this.state.desired[id] = pluginAsset(local.name, local.version, local.enabled);
+          this.state.desired[id] = pluginAsset(local.name, local.version, local.enabled, local.source);
         }
       }
       this.observe(); await this.save(); this.capturedHash = hash(Object.fromEntries(this.local)); this.publish();
@@ -232,7 +235,7 @@ export class PluginSync {
           } catch (error) { code = safeOutcome({ error, packageResult: error?.packageResult }); }
           await this.scan();
           const actual = this.local.get(item.id);
-          if (code === 'applied' && (!this.available || !actual?.exportable || actual.version !== item.version || actual.enabled !== item.enabled)) code = 'failed';
+          if (code === 'applied' && (!this.available || !actual?.exportable || actual.source !== item.source || actual.version !== item.version || actual.enabled !== item.enabled)) code = 'failed';
           this.state.results[item.id] = { fingerprint: this.fingerprint(this.state.desired[item.id]), code };
           if (this.available) this.state.observed[item.id] = actual ? hash(actual) : null;
           this.progress.current++; await this.save(); this.publish();

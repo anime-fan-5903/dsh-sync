@@ -1,6 +1,6 @@
 {
   "name": "dsh-sync",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "license": "GPL-3.0-only",
   "description": "Synchronize DSH instructions, Skills, portable settings, model configuration and plugin declarations across devices with optional cloud encryption.",
   "type": "module",

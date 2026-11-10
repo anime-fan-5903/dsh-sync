@@ -63,6 +63,35 @@ test('new source installs automatically create a remote reminder and exact local
   assert.equal(targetManager.calls.length, 1, 'Synchronizing a new declaration must not install without a new local confirmation');
 });
 
+test('two devices exchange built-in switches across Host versions with local activation confirmation', async t => {
+  const name = '@deepseek-ai/dsh-experimental-auto-review';
+  const builtin = (version, enabled) => ({ name, version, enabled, official: true, optional: true, installed: false, availability: 'installation', rows: [], overrides: [] });
+  const left = managerFixture([builtin('0.2.2-rc.1', false)]), right = managerFixture([builtin('0.3.0', false)]);
+  const a = await appFixture(t, left), b = await appFixture(t, right);
+  await enable(a); await enable(b);
+  const cloud = cloudFixture(); a.engine.backend = cloud; b.engine.backend = cloud;
+  await a.operation('initialize'); await b.operation('initialize'); await b.operation('sync');
+  left.rows[0].enabled = true;
+  await a.operation('sync'); await b.operation('sync');
+  const manifest = decodeEnvelope(cloud.remote.envelope).find(asset => asset.name === name);
+  assert.deepEqual(manifest, pluginAsset(name, null, true, 'builtin'));
+  const status = await b.operation('plugins-status');
+  assert.equal(status.pendingCount, 1); assert.equal(status.items[0].kind, 'activation');
+  assert.equal(status.items[0].canInstall, true); assert.deepEqual(right.calls, []);
+  await b.operation('sync'); assert.equal(right.rows[0].enabled, false);
+  await b.operation('plugins-install', { choices: status.items.map(({ id, fingerprint }) => ({ id, fingerprint })) });
+  assert.deepEqual(right.calls, [{ name, enabled: true }]);
+  await b.operation('sync'); await a.operation('sync');
+  assert.equal((await a.summary()).plugins.pendingCount, 0);
+  assert.equal((await b.summary()).plugins.pendingCount, 0);
+  right.rows[0].enabled = false;
+  await b.operation('sync'); await a.operation('sync');
+  const item = (await a.operation('plugins-status')).items[0];
+  assert.equal(item.enabled, false); assert.equal(item.kind, 'activation'); assert.deepEqual(left.calls, []);
+  await a.operation('plugins-install', { choices: [{ id: item.id, fingerprint: item.fingerprint }] });
+  assert.deepEqual(left.calls, [{ name, enabled: false }]);
+});
+
 test('combined adapter preserves source packages added while a cloud publication is in flight', async t => {
   const manager = managerFixture([row('example-existing')]); const app = await appFixture(t, manager); await enable(app);
   const state = await app.store.read(); const plan = await app.targets.prepare(state, []);
