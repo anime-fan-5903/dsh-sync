@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
+// Git checkout line endings do not make otherwise identical generated resources stale.
+const normalizeLineEndings = source => source.replace(/\r\n/g, '\n');
 const languages = ['en', 'zh-CN', 'ja'];
 if (process.argv.includes('--check')) {
   const files = (await readdir(new URL('locale/', root))).filter(name => name.endsWith('.json')).sort();
@@ -21,10 +23,10 @@ for (const language of languages) {
 // DSH's built-in Simplified Chinese locale uses the language-wide zh id.
 const alias = new URL('locale/zh.json', root);
 const aliasSource = `${JSON.stringify(resources['zh-CN'], null, 2)}\n`;
-if (process.argv.includes('--check')) assert.equal(await readFile(alias, 'utf8'), aliasSource, 'Chinese metadata alias is stale; run node scripts/locales.mjs');
+if (process.argv.includes('--check')) assert.equal(normalizeLineEndings(await readFile(alias, 'utf8')), aliasSource, 'Chinese metadata alias is stale; run node scripts/locales.mjs');
 else await writeFile(alias, aliasSource);
 const target = new URL('client.js', root);
-const source = await readFile(target, 'utf8');
+const source = normalizeLineEndings(await readFile(target, 'utf8'));
 const start = '    // BEGIN GENERATED LOCALES\n';
 const end = '    // END GENERATED LOCALES';
 const from = source.indexOf(start);
