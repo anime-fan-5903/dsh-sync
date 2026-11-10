@@ -26,6 +26,12 @@ Tested on DSH `0.2.2-rc.1`. Nearby versions may be compatible, but compatibility
 4. If using encryption, choose a passphrase of at least 12 characters and save the one-time recovery key separately from this device and OneDrive. On an existing encrypted vault, unlock once to establish automatic unlock on supported Windows devices.
 5. Edit files normally and wait for **Synced** before switching devices. **View** opens the original file in the Host's registered application.
 
+## Settings navigation
+
+Five horizontal tabs organize the controls: **Overview**, **Sync assets**, **Security**, **Conflicts**, and **Backups**. Switching tabs retains form entries and conflict selections while the settings remain open.
+
+Ordinary explanations are available from the **?** buttons beside the relevant options or card headings. Hover or focus for 500 ms to show a help bubble; click or tap to pin it for reading. Click the button again, click outside the bubble, or press Escape to dismiss it. Key warnings remain visible rather than being hidden in help bubbles.
+
 ## Sidebar status
 
 A live status entry above the sidebar's **More** / account launcher checks status every three seconds while the page is visible. Hover or focus it for an explanation. It distinguishes syncing, conflicts, locked vaults, inventory warnings, loading, connection failures, required sign-in/setup, paused sync, pending changes, and errors rather than reporting them as synced. Windows desktop hides the entry when the sidebar is collapsed.

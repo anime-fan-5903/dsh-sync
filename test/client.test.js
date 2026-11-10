@@ -11,7 +11,7 @@ const base = {
 };
 // The small hook harness exercises the plain-JS view contract without a React dependency.
 // It is not a browser layout test or a replacement for installed-client verification.
-const stateNames = ['status','error','notice','pending','encrypted','passphrase','confirmation','secret','method','recovery','savedRecovery','choices','confirm','loadError','loginUrl','recoveryCopyStatus'];
+const stateNames = ['status','error','notice','pending','encrypted','passphrase','confirmation','secret','method','recovery','savedRecovery','choices','confirm','loadError','loginUrl','recoveryCopyStatus','activeTab','helpScrolling'];
 const state = Object.fromEntries(stateNames.map((name,index) => [name,index]));
 const flatten = node => !node || typeof node !== 'object' ? [] : [node, ...node.children.flat(Infinity).flatMap(flatten)];
 const flush = async () => { for (let index = 0; index < 20; index++) await Promise.resolve(); };
@@ -38,6 +38,7 @@ function harness(initialLanguage = 'en', componentProps = {}) {
       return { type, props: props || {}, children };
     },
     Fragment: Symbol('fragment'),
+    useId: () => 'fixture-settings',
     useState(initial) {
       const index = cursor++;
       if (!(index in states)) states[index] = initial;
@@ -81,8 +82,11 @@ function harness(initialLanguage = 'en', componentProps = {}) {
       tabs.push(tab); return tab;
     },
   };
+  const focusedIds = [], timeouts = new Map();
+  let nextTimeout = 0;
   const document = {
     hidden: false,
+    getElementById: id => ({ focus() { focusedIds.push(id); } }),
     addEventListener: (name, fn) => events.set(name, fn),
     removeEventListener: name => events.delete(name),
   };
@@ -92,6 +96,8 @@ function harness(initialLanguage = 'en', componentProps = {}) {
     crypto: globalThis.crypto, URL, AbortController,
     setInterval(fn, delay) { assert.equal(delay, 3000); timers.set(1, fn); return 1; },
     clearInterval: id => timers.delete(id),
+    setTimeout(fn, delay) { assert.equal(delay, 150); timeouts.set(++nextTimeout, fn); return nextTimeout; },
+    clearTimeout: id => timeouts.delete(id),
     async fetch(url, options) {
       calls.push({ url, options });
       if (options.method === 'GET') {
@@ -141,7 +147,7 @@ function harness(initialLanguage = 'en', componentProps = {}) {
     assert.ok(found, `Button not found: ${label}`); return found;
   };
   return {
-    states, calls, replies, getReplies, tabs, opens, events, timers, document, dictionary, render, commit, dialog, trackingDialog, clipboardWrites, button, success, remote, editorCalls, availabilityReplies, openReplies,
+    states, calls, replies, getReplies, tabs, opens, events, timers, document, dictionary, render, commit, dialog, trackingDialog, clipboardWrites, button, success, remote, editorCalls, availabilityReplies, openReplies, focusedIds, timeouts,
     dictionaries, localeListeners,
     get localeNotifications() { return localeNotifications; },
     switchLanguage(active) {
@@ -201,7 +207,8 @@ test('connection uses the built-in application without an editable ID or save st
   const app = harness(); await app.mount();
   app.states[state.status] = { ...base, initialized: false, signedIn: false, settings: {} };
   const tree = app.render();
-  assert.ok(flatten(tree).some(node => node.children.includes(english.applicationHelp)));
+  assert.ok(flatten(tree).some(node => node.type === 'tooltip' && node.props.label === english.applicationHelp));
+  assert.ok(!flatten(tree).some(node => node.type === 'p' && node.children.includes(english.applicationHelp)));
   assert.ok(!JSON.stringify(tree).includes('Microsoft application (client) ID'));
   assert.ok(!flatten(tree).some(node => node.type === 'button' && node.children.includes('Save configuration')));
   assert.equal(app.button('Sign in with Microsoft').props.disabled, false);
@@ -761,4 +768,144 @@ test('a stalled ordinary sync does not trap the user in the standalone dialog', 
   app.unmount(); assert.equal(post.options.signal.aborted, true);
   pending.resolve(app.success({ synced: true })); await flush();
   assert.equal(closed, 1); assert.equal(closeRequest.current, null);
+});
+
+test('page scrolling dismisses help but bubble-internal scrolling stays readable and unmount clears timers', async () => {
+  const app = harness(); await app.mount();
+  const scroll = app.events.get('scroll'); assert.ok(scroll);
+  scroll({ target: { closest: () => ({}) } });
+  assert.equal(app.states[state.helpScrolling], false); assert.equal(app.timeouts.size, 0);
+  scroll({ target: {} }); app.commit();
+  assert.equal(app.states[state.helpScrolling], true);
+  assert.ok(flatten(app.render()).filter(node => node.type === 'tooltip').every(node => node.props.disabled));
+  scroll({ target: {} }); assert.equal(app.timeouts.size, 1);
+  for (const [id, callback] of app.timeouts) { app.timeouts.delete(id); callback(); }
+  app.commit(); assert.equal(app.states[state.helpScrolling], false);
+  assert.equal(flatten(app.render()).find(node => node.type === 'tooltip' && node.props.label === english.autoHelp).props.disabled, false);
+  scroll({ target: {} }); assert.equal(app.timeouts.size, 1);
+  app.unmount(); assert.equal(app.timeouts.size, 0); assert.equal(app.events.has('scroll'), false);
+});
+
+const tabNodes = app => flatten(app.render()).filter(node => node.props.role === 'tab');
+const panelNodes = app => flatten(app.render()).filter(node => node.props.role === 'tabpanel');
+function switchTab(app, id) {
+  const tab = tabNodes(app).find(node => node.props.id.endsWith('-tab-' + id));
+  assert.ok(tab); assert.equal(tab.props.disabled, false); tab.props.onClick(); app.commit();
+}
+function visibleNodes(node) {
+  if (!node || typeof node !== 'object' || node.props.hidden) return [];
+  return [node, ...node.children.flat(Infinity).flatMap(visibleNodes)];
+}
+
+test('five stable tabs expose one panel and matching accessible relationships', async () => {
+  const app = harness(); await app.mount();
+  assert.deepEqual(tabNodes(app).map(tab => tab.children[0]), [english.tabOverview, english.tabAssets, english.tabSecurity, english.tabConflicts, english.tabBackups]);
+  const requests = app.calls.length;
+  for (const id of ['overview', 'assets', 'security', 'conflicts', 'backups']) {
+    switchTab(app, id);
+    const tabs = tabNodes(app), panels = panelNodes(app);
+    assert.equal(tabs.length, 5); assert.equal(panels.length, 5);
+    const selected = tabs.filter(tab => tab.props['aria-selected']); assert.equal(selected.length, 1);
+    const shown = panels.filter(panel => !panel.props.hidden); assert.equal(shown.length, 1);
+    assert.equal(selected[0].props['aria-controls'], shown[0].props.id);
+    assert.equal(shown[0].props['aria-labelledby'], selected[0].props.id);
+    assert.equal(tabs.filter(tab => tab.props.tabIndex === 0).length, 1);
+  }
+  assert.equal(app.calls.length, requests, 'Navigation must not issue API requests.');
+  assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.emptyBackups)));
+  switchTab(app, 'conflicts');
+  assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.emptyConflicts)));
+  app.unmount();
+});
+
+test('tab arrow keys wrap, Home and End move focus, and unrelated keys leave selection unchanged', async () => {
+  const app = harness(); await app.mount();
+  for (const [key, expected] of [['ArrowLeft', 'backups'], ['ArrowRight', 'overview'], ['End', 'backups'], ['Home', 'overview']]) {
+    let prevented = false;
+    const current = tabNodes(app).find(tab => tab.props['aria-selected']);
+    current.props.onKeyDown({ key, preventDefault() { prevented = true; } }); app.commit();
+    assert.equal(prevented, true); assert.equal(app.states[state.activeTab], expected);
+    assert.equal(app.focusedIds.at(-1), 'fixture-settings-tab-' + expected);
+  }
+  tabNodes(app)[0].props.onKeyDown({ key: 'a', preventDefault() { assert.fail('Unrelated key was intercepted.'); } });
+  assert.equal(app.states[state.activeTab], 'overview'); app.unmount();
+});
+
+test('tab navigation and polling retain drafts and fingerprint-bound conflict choices without duplicating polling', async () => {
+  const app = harness(); await app.mount();
+  const conflict = { id: 'fixture', type: 'prompt', name: 'Fixture', localHash: 'local-v1', remoteHash: 'remote-v1' };
+  app.states[state.status] = { ...base, conflicts: [conflict] };
+  switchTab(app, 'security');
+  const input = flatten(app.render()).find(node => node.type === 'input' && node.props.autoComplete === 'new-password');
+  input.props.onChange({ target: { value: 'Fixture unfinished passphrase' } });
+  switchTab(app, 'conflicts');
+  const selector = flatten(app.render()).find(node => node.type === 'select' && node.children.some(child => child?.children?.includes('Local — Present')));
+  selector.props.onChange({ target: { value: 'remote' } });
+  const choice = app.states[state.choices].fixture;
+  switchTab(app, 'assets'); switchTab(app, 'security');
+  assert.equal(app.states[state.passphrase], 'Fixture unfinished passphrase'); assert.equal(app.states[state.choices].fixture, choice);
+  app.getReplies.push(app.success({ ...base, conflicts: [conflict] }));
+  const requests = app.calls.length; for (const tick of app.timers.values()) tick(); await flush(); app.commit();
+  assert.equal(app.calls.length, requests + 1); assert.equal(app.timers.size, 1);
+  assert.equal(app.states[state.activeTab], 'security'); assert.equal(app.states[state.choices].fixture, choice);
+  assert.equal(app.button(english.applyChoices).props.disabled, false);
+  app.states[state.status] = { ...base, conflicts: [{ ...conflict, remoteHash: 'remote-v2' }] };
+  assert.equal(app.button(english.applyChoices).props.disabled, true); app.unmount();
+});
+
+test('ordinary explanations use delayed clickable help outside option labels and close when their panel hides', async () => {
+  const app = harness(); await app.mount();
+  const ordinary = ['applicationHelp', 'autoHelp', 'trackingHelp', 'trackingAgentsHelp', 'deviceTrustHelp', 'passphraseHelp', 'backupsHelp'];
+  let nodes = flatten(app.render());
+  for (const key of ordinary) {
+    const bubble = nodes.find(node => node.type === 'tooltip' && node.props.label === english[key]); assert.ok(bubble, key);
+    assert.equal(bubble.props.openOnClick, true); assert.equal(bubble.props.delayMs, 500); assert.equal(bubble.props.focusDelayMs, 500);
+    assert.equal(bubble.props.portal, false, 'Help must remain inside the native settings dialog.');
+    assert.equal(bubble.props.maxWidth, 360);
+    const trigger = bubble.children[0]; assert.equal(trigger.type, 'button'); assert.equal(trigger.props.type, 'button');
+    assert.ok(trigger.props['aria-label'].endsWith(': ' + english.help));
+    assert.ok(!nodes.some(node => node.type === 'p' && node.children.includes(english[key])), key + ' must not remain a paragraph.');
+  }
+  for (const label of nodes.filter(node => node.type === 'label')) assert.ok(!flatten(label).some(node => node.props.className === 'ds-help'));
+  assert.equal(nodes.find(node => node.type === 'tooltip' && node.props.label === english.autoHelp).props.disabled, false);
+  switchTab(app, 'assets'); nodes = flatten(app.render());
+  assert.equal(nodes.find(node => node.type === 'tooltip' && node.props.label === english.autoHelp).props.disabled, true);
+  assert.equal(nodes.find(node => node.type === 'tooltip' && node.props.label === english.trackingHelp).props.disabled, false);
+  app.unmount();
+});
+
+test('critical warnings stay visible and cross-tab attention links do not force navigation on refresh', async () => {
+  const app = harness(); await app.mount();
+  app.states[state.status] = { ...trackingStatus(), locked: true, signedIn: false, error: { code: 'network-failed' },
+    conflicts: [{ id: 'fixture', type: 'prompt', name: 'Fixture', localHash: 'l', remoteHash: 'r' }] };
+  app.states[state.status].tracking.issues = [{ code: 'native-linked-path' }];
+  for (const id of ['assets', 'security', 'conflicts', 'backups', 'overview']) {
+    switchTab(app, id); const visible = visibleNodes(app.render());
+    for (const key of ['signedOut', 'locked', 'plaintext']) assert.ok(visible.some(node => node.children.includes(english[key])), key);
+    assert.ok(visible.some(node => node.props.role === 'alert' && node.children.some(text => typeof text === 'string' && text.includes(english['error_network-failed']))));
+  }
+  assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.permissionWarning)));
+  app.click(english.openConflicts); app.commit(); assert.equal(app.states[state.activeTab], 'conflicts');
+  assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.conflictWarning)));
+  const conflictTab = tabNodes(app).find(tab => tab.children[0] === english.tabConflicts);
+  assert.equal(flatten(conflictTab).find(node => node.props.className === 'ds-badge').children[0], 1);
+  app.click(english.openSecurity); app.commit(); assert.equal(app.states[state.activeTab], 'security');
+  app.click(english.openAssets); app.commit(); assert.equal(app.states[state.activeTab], 'assets');
+  switchTab(app, 'backups'); assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.restoreConfirm)));
+  app.getReplies.push(app.success(base)); await app.events.get('focus')(); await flush(); app.commit();
+  assert.equal(app.states[state.activeTab], 'backups'); assert.equal(tabNodes(app).length, 5); app.unmount();
+});
+
+test('recovery and destructive confirmation dialogs suppress help without changing the selected tab', async () => {
+  const app = harness(); await app.mount(); switchTab(app, 'assets');
+  app.states[state.confirm] = { kind: 'agents-enable' }; app.commit();
+  assert.ok(tabNodes(app).every(tab => tab.props.disabled));
+  assert.ok(flatten(app.render()).filter(node => node.type === 'tooltip').every(node => node.props.disabled));
+  app.states[state.recovery] = 'FIXTURE-RECOVERY'; app.commit();
+  assert.equal(app.dialog.open, true); assert.equal(app.trackingDialog.open, false);
+  assert.equal(app.states[state.activeTab], 'assets');
+  assert.ok(tabNodes(app).every(tab => tab.props.disabled));
+  const modal = flatten(app.render()).find(node => node.type === 'dialog');
+  assert.ok(flatten(modal).some(node => node.children.includes(english.recoveryWarning)));
+  assert.equal(app.button(english.recoveryConfirm).props.disabled, true); app.unmount();
 });

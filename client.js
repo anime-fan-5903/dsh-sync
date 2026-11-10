@@ -9,6 +9,19 @@ window.__ModuleLoader__.load({
   "en": {
     "title": "DSH Sync",
     "subtitle": "Your native assets, available on your devices. OneDrive stores the shared copy; this Host keeps the original working files.",
+    "settingsTabs": "Sync settings sections",
+    "tabOverview": "Overview",
+    "tabAssets": "Sync assets",
+    "tabSecurity": "Security",
+    "tabConflicts": "Conflicts",
+    "tabBackups": "Backups",
+    "help": "Help",
+    "emptyConflicts": "No conflicts to resolve.",
+    "conflictWarning": "Applying choices replaces the discarded versions after backing them up locally.",
+    "openOverview": "Go to overview",
+    "openSecurity": "Go to security",
+    "openConflicts": "Review conflicts",
+    "openAssets": "Review inventory warnings",
     "loading": "Loading sync settings…",
     "loadFailed": "Sync settings could not be loaded. Use Refresh to retry.",
     "refresh": "Refresh",
@@ -227,6 +240,19 @@ window.__ModuleLoader__.load({
   "zh-CN": {
     "title": "DSH Sync",
     "subtitle": "让原生资产在各台设备上随时可用。OneDrive 保存共享副本；此 Host 保留原始工作文件。",
+    "settingsTabs": "同步设置分类",
+    "tabOverview": "概览",
+    "tabAssets": "同步资产",
+    "tabSecurity": "安全",
+    "tabConflicts": "冲突",
+    "tabBackups": "备份",
+    "help": "帮助",
+    "emptyConflicts": "没有需要处理的冲突。",
+    "conflictWarning": "应用选择会替换未保留的版本，替换前会先在本地备份。",
+    "openOverview": "前往概览",
+    "openSecurity": "前往安全设置",
+    "openConflicts": "处理冲突",
+    "openAssets": "查看清单警告",
     "loading": "正在加载同步设置…",
     "loadFailed": "无法加载同步设置。请点击“刷新”重试。",
     "refresh": "刷新",
@@ -445,6 +471,19 @@ window.__ModuleLoader__.load({
   "ja": {
     "title": "DSH Sync",
     "subtitle": "ネイティブアセットを各デバイスで利用できます。共有コピーは OneDrive に保存され、この Host は元の作業ファイルを保持します。",
+    "settingsTabs": "同期設定の分類",
+    "tabOverview": "概要",
+    "tabAssets": "同期アセット",
+    "tabSecurity": "セキュリティ",
+    "tabConflicts": "競合",
+    "tabBackups": "バックアップ",
+    "help": "ヘルプ",
+    "emptyConflicts": "解決が必要な競合はありません。",
+    "conflictWarning": "選択を適用すると、破棄するバージョンをローカルにバックアップしてから置き換えます。",
+    "openOverview": "概要へ",
+    "openSecurity": "セキュリティ設定へ",
+    "openConflicts": "競合を確認",
+    "openAssets": "一覧の警告を確認",
     "loading": "同期設定を読み込み中…",
     "loadFailed": "同期設定を読み込めませんでした。「更新」で再試行してください。",
     "refresh": "更新",
@@ -671,7 +710,7 @@ window.__ModuleLoader__.load({
 .dsh-sync button,.dsh-sync input,.dsh-sync select{font:inherit;color:inherit;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:var(--dsw-alias-bg-base)}
 .dsh-sync button{padding:7px 12px;cursor:pointer}.dsh-sync button:disabled{opacity:.5;cursor:not-allowed}.dsh-sync .ds-primary{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}
 .dsh-sync :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.dsh-sync input:not([type=checkbox]),.dsh-sync select{padding:8px;width:100%;margin-top:5px}
-.dsh-sync label.ds-field{display:block;margin:12px 0}.dsh-sync input[type=checkbox]{margin-right:8px;accent-color:var(--dsw-alias-brand-primary)}
+.dsh-sync .ds-field{display:block;margin:12px 0}.dsh-sync input[type=checkbox]{margin-right:8px;accent-color:var(--dsw-alias-brand-primary)}
 .dsh-sync .ds-warning{color:var(--dsw-alias-state-warn-primary)}.dsh-sync .ds-error{color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere}.dsh-sync .ds-success{color:var(--dsw-alias-state-success-primary)}
 .dsh-sync .ds-value{overflow-wrap:anywhere}.dsh-sync .ds-key{display:block;white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;background:var(--dsw-alias-bg-layer-2);user-select:all;font-family:ui-monospace,monospace}
 .dsh-sync .ds-conflict{padding:12px 0;border-top:1px solid var(--dsw-alias-border-l1)}.dsh-sync .ds-check{display:block;margin:12px 0}.dsh-sync .ds-confirm{padding:12px;background:var(--dsw-alias-bg-layer-2);border-radius:6px;margin-top:8px}
@@ -680,6 +719,14 @@ window.__ModuleLoader__.load({
 .dsh-sync .ds-recovery-confirm{margin-top:12px;width:100%}
 .dsh-sync .ds-dialog-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:8px;margin-top:16px}
 .dsh-sync .ds-dialog-actions>button{width:100%;height:100%;min-height:44px;margin:0;white-space:normal}
+.dsh-sync [hidden]{display:none!important}
+.dsh-sync .ds-tabs{display:flex;gap:4px;overflow-x:auto;padding:4px 2px 8px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.dsh-sync .ds-tabs>button{flex-shrink:0;white-space:nowrap;border-color:transparent;background:transparent;min-height:40px}
+.dsh-sync .ds-tabs>button[aria-selected=true]{color:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-1)}
+.dsh-sync .ds-badge{margin-inline-start:6px;font-size:12px;color:var(--dsw-alias-state-warn-primary)}
+.dsh-sync .ds-option{display:flex;align-items:center;gap:6px}.dsh-sync .ds-option>.ds-check{margin:8px 0}
+.dsh-sync button.ds-help{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:24px;height:24px;margin-inline-start:6px;padding:0;border-radius:50%;font-size:13px;color:var(--dsw-alias-label-secondary);vertical-align:middle}
+.dsh-sync .ds-summary{margin:12px 0}.dsh-sync .ds-summary p{margin:4px 0}
 .dsh-sync .ds-tracking-root{margin-top:18px}.dsh-sync .ds-tracking-root h4{margin:0 0 8px;font-size:14px}
 .dsh-sync .ds-tracking-item{padding:12px 0;border-top:1px solid var(--dsw-alias-border-l1);overflow-wrap:anywhere}
 .dsh-sync .ds-tracking-item summary{cursor:pointer}.dsh-sync .ds-tracking-state{display:block;margin-top:4px;color:var(--dsw-alias-label-secondary)}
@@ -827,6 +874,9 @@ window.__ModuleLoader__.load({
           const [loadError, setLoadError] = React.useState('');
           const [loginUrl, setLoginUrl] = React.useState('');
           const [recoveryCopyStatus, setRecoveryCopyStatus] = React.useState('');
+          const [activeTab, setActiveTab] = React.useState('overview');
+          const [helpScrolling, setHelpScrolling] = React.useState(false);
+          const settingsId = React.useId();
           const recoveryDialog = React.useRef(null);
           const trackingDialog = React.useRef(null);
           const mounted = React.useRef(false);
@@ -918,6 +968,21 @@ window.__ModuleLoader__.load({
             };
           }, []);
           React.useEffect(() => {
+            let timer = null;
+            const scroll = event => {
+              // Reading a pinned bubble's own overflow must not dismiss it.
+              if (event.target?.closest?.('[role="tooltip"]')) return;
+              setHelpScrolling(true);
+              if (timer !== null) clearTimeout(timer);
+              timer = setTimeout(() => { timer = null; setHelpScrolling(false); }, 150);
+            };
+            document.addEventListener('scroll', scroll, true);
+            return () => {
+              document.removeEventListener('scroll', scroll, true);
+              if (timer !== null) clearTimeout(timer);
+            };
+          }, []);
+          React.useEffect(() => {
             const dialog = recoveryDialog.current;
             if (!dialog || !recovery) return;
             // The native top layer is independent of the settings scroll position.
@@ -972,14 +1037,43 @@ window.__ModuleLoader__.load({
           }
           const disabled = pending || !!recovery;
           const usable = !!status?.initialized && !status?.locked;
-          const card = (title, ...children) => h('section', { className: 'ds-card' }, h('h3', null, t(title)), ...children);
+          const tabs = [['overview', 'tabOverview'], ['assets', 'tabAssets'], ['security', 'tabSecurity'], ['conflicts', 'tabConflicts'], ['backups', 'tabBackups']];
+          function selectTab(tab, focus = false) {
+            setActiveTab(tab);
+            if (focus) document.getElementById(settingsId + '-tab-' + tab)?.focus();
+          }
+          function tabKeyDown(event, index) {
+            let next;
+            if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+            else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+            else if (event.key === 'Home') next = 0;
+            else if (event.key === 'End') next = tabs.length - 1;
+            else return;
+            event.preventDefault();
+            selectTab(tabs[next][0], true);
+          }
+          const panel = (tab, ...children) => h('div', { key: tab, className: 'ds-panel', role: 'tabpanel',
+            id: settingsId + '-panel-' + tab, 'aria-labelledby': settingsId + '-tab-' + tab, hidden: activeTab !== tab, tabIndex: 0 }, ...children);
+          const help = (label, message, tab) => h(Tooltip, { label: t(message), openOnClick: true, delayMs: 500, focusDelayMs: 500,
+            side: 'bottom', maxWidth: 360, portal: false, disabled: activeTab !== tab || !!recovery || trackingConfirmation || helpScrolling },
+            h('button', { type: 'button', className: 'ds-help', 'aria-label': t(label) + ': ' + t('help') }, '?'));
+          const cardHelp = { connection: ['applicationHelp', 'overview'], setup: ['setupHelp', 'overview'],
+            assets: ['trackingHelp', 'assets'], conflicts: ['conflictsHelp', 'conflicts'], backups: ['backupsHelp', 'backups'] };
+          const card = (title, ...children) => h('section', { className: 'ds-card' }, h('h3', null, t(title),
+            cardHelp[title] && help(title, ...cardHelp[title])), ...children);
           const text = (key, className = 'ds-muted') => h('p', { className }, t(key));
           const button = (key, onClick, unavailable = false, primary = false) => h('button', { type: 'button', onClick, disabled: disabled || unavailable, className: primary ? 'ds-primary' : undefined }, t(key));
-          const field = (key, value, onChange, props = {}) => h('label', { className: 'ds-field' }, t(key), h('input', { value, onChange: event => onChange(event.target.value), disabled, ...props }));
-          const checkbox = (key, checked, onChange, unavailable = false) => h('label', { className: 'ds-check' }, h('input', { type: 'checkbox', checked: !!checked, onChange: event => onChange(event.target.checked), disabled: disabled || unavailable }), t(key));
+          const field = (key, value, onChange, props = {}, helpMessage) => h('div', { className: 'ds-field' },
+            h('div', { className: 'ds-option' }, h('label', { htmlFor: settingsId + '-field-' + key }, t(key)),
+              helpMessage && help(key, helpMessage, status?.initialized ? 'security' : 'overview')),
+            h('input', { id: settingsId + '-field-' + key, value, onChange: event => onChange(event.target.value), disabled, ...props }));
+          const optionHelp = { autoSync: ['autoHelp', 'overview'], deviceTrustRemember: ['deviceTrustHelp', 'security'], trackingAgentsEnabled: ['trackingAgentsHelp', 'assets'] };
+          const checkbox = (key, checked, onChange, unavailable = false) => h('div', { className: 'ds-option' },
+            h('label', { className: 'ds-check' }, h('input', { type: 'checkbox', checked: !!checked, onChange: event => onChange(event.target.checked), disabled: disabled || unavailable }), t(key)),
+            optionHelp[key] && help(key, ...optionHelp[key]));
           const row = (key, value) => h('div', { className: 'ds-row' }, h('span', { className: 'ds-muted' }, t(key)), h('span', { className: 'ds-value' }, value));
           const passphraseFields = () => h(React.Fragment, null,
-            text('passphraseHelp'), field('passphrase', passphrase, setPassphrase, { type: 'password', autoComplete: 'new-password', spellCheck: false }),
+            field('passphrase', passphrase, setPassphrase, { type: 'password', autoComplete: 'new-password', spellCheck: false }, 'passphraseHelp'),
             field('confirmPassphrase', confirmation, setConfirmation, { type: 'password', autoComplete: 'new-password', spellCheck: false }));
           function withPassphrase(action, extra = {}) {
             if (passphrase.length < 12 || !confirmation) { setError({ messageKey: 'passphraseRequired' }); return; }
@@ -1091,7 +1185,26 @@ window.__ModuleLoader__.load({
                   else run('tracking-exclude', { id: confirm.id, confirmCloudDelete: true }, () => setConfirm(null));
                 }, confirm.kind === 'restore' && !usable, true))),
             !status ? h(React.Fragment, null, text(loadError ? 'loadFailed' : 'loading'), button('refresh', refresh)) : h(React.Fragment, null,
-              card('connection', text('applicationHelp'), text('permissionWarning', 'ds-warning'),
+              h('div', { className: 'ds-summary', role: 'status' },
+                status.initialized && h('p', null, t('phase') + ': ' + phaseName(status.phase)),
+                !status.signedIn && text('signedOut', 'ds-warning'),
+                !status.initialized && text('sidebarSetup', 'ds-warning'),
+                status.locked && text('locked', 'ds-warning'),
+                status.initialized && !status.encrypted && text('plaintext', 'ds-warning'),
+                deviceTrust.error && text('deviceTrustError', 'ds-warning'),
+                status.error && h('p', { role: 'alert', className: 'ds-error' }, safeError(typeof status.error === 'string' ? { message: status.error } : status.error)),
+                status.auth?.error && h('p', { role: 'alert', className: 'ds-error' }, safeError(typeof status.auth.error === 'string' ? { message: status.auth.error } : status.auth.error)),
+                h('div', { className: 'ds-actions' },
+                  (!status.signedIn || !status.initialized || status.auth?.error) && button('openOverview', () => selectTab('overview')),
+                  (status.locked || deviceTrust.error) && button('openSecurity', () => selectTab('security')),
+                  conflicts.length > 0 && button('openConflicts', () => selectTab('conflicts')),
+                  tracking.issues?.length > 0 && button('openAssets', () => selectTab('assets')))),
+              h('div', { className: 'ds-tabs', role: 'tablist', 'aria-label': t('settingsTabs') }, ...tabs.map(([tab, label], index) =>
+                h('button', { key: tab, type: 'button', role: 'tab', id: settingsId + '-tab-' + tab,
+                  'aria-controls': settingsId + '-panel-' + tab, 'aria-selected': activeTab === tab, tabIndex: activeTab === tab ? 0 : -1,
+                  disabled: !!recovery || trackingConfirmation, onClick: () => selectTab(tab), onKeyDown: event => tabKeyDown(event, index) },
+                  t(label), tab === 'conflicts' && conflicts.length > 0 && h('span', { className: 'ds-badge' }, conflicts.length)))),
+              panel('overview', card('connection', text('permissionWarning', 'ds-warning'),
                 h('p', null, t(status.signedIn ? 'signedIn' : 'signedOut')),
                 status.auth?.pending && text('authPending'),
                 loginUrl && !status.signedIn && h('div', { className: 'ds-confirm' }, text('loginLinkHelp'),
@@ -1100,18 +1213,18 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'ds-actions' },
                   !status.signedIn && button('signIn', signIn, status.auth?.pending, true),
                   status.signedIn && button('signOut', () => run('sign-out')))),
-              !status.initialized && card('setup', text('setupHelp'), checkbox('encryptInitially', encrypted, setEncrypted),
+              !status.initialized && card('setup', checkbox('encryptInitially', encrypted, setEncrypted),
                 !encrypted && text('plainWarning', 'ds-warning'), text('retentionWarning', 'ds-warning'), encrypted && passphraseFields(),
                 button('initialize', () => encrypted ? withPassphrase('initialize', { encrypted: true }) : run('initialize', { encrypted: false }), !status.signedIn, true)),
               status.initialized && card('overview', row('phase', phaseName(status.phase)), row('lastSync', date(status.lastSync)),
                 row('encryption', `${t(status.encrypted ? 'encrypted' : 'plaintext')}${status.encrypted ? ` · ${t(status.locked ? 'locked' : 'unlocked')}` : ''}`),
                 status.error && h('p', { role: 'alert', className: 'ds-error' }, safeError(typeof status.error === 'string' ? { message: status.error } : status.error)),
-                row('directory', status.dataDirectory || '—'), text('localWarning'),
-                checkbox('autoSync', status.settings?.enabled, enabled => run('configure', { enabled })), text('autoHelp'),
-                h('div', { className: 'ds-actions' }, button('sync', () => run('sync'), !status.signedIn || status.locked, true), button('refresh', refresh))),
-              status.initialized && card('security',
+                row('directory', status.dataDirectory || '—'), text('localWarning', 'ds-warning'),
+                checkbox('autoSync', status.settings?.enabled, enabled => run('configure', { enabled })),
+                h('div', { className: 'ds-actions' }, button('sync', () => run('sync'), !status.signedIn || status.locked, true), button('refresh', refresh)))),
+              panel('security', status.initialized && card('security',
                 checkbox('deviceTrustRemember', !!deviceTrust.available && !!deviceTrust.remember, remember => run('device-trust-configure', { remember }), !deviceTrust.available),
-                text(deviceTrust.available ? 'deviceTrustHelp' : 'deviceTrustUnavailable', deviceTrust.available ? 'ds-muted' : 'ds-warning'),
+                !deviceTrust.available && text('deviceTrustUnavailable', 'ds-warning'),
                 deviceTrust.manualLocked && text('deviceTrustManualLock', 'ds-warning'),
                 deviceTrust.available && deviceTrust.remember && !deviceTrust.manualLocked && !deviceTrust.hasSavedKey && status.encrypted && text('deviceTrustEstablish'),
                 deviceTrust.error && text('deviceTrustError', 'ds-warning'),
@@ -1120,10 +1233,11 @@ window.__ModuleLoader__.load({
                     h('option', { value: 'passphrase' }, t('usePassphrase')), h('option', { value: 'recovery' }, t('useRecovery')))),
                   field('unlockSecret', secret, setSecret, { type: 'password', autoComplete: 'off', spellCheck: false }),
                   button('unlock', () => run('unlock', { secret, method }), !secret, true)) : h(React.Fragment, null,
-                    status.encrypted ? text('changeHelp') : text('retentionWarning', 'ds-warning'), passphraseFields(),
+                    status.encrypted ? text('changeHelp', 'ds-warning') : text('retentionWarning', 'ds-warning'), passphraseFields(),
                     h('div', { className: 'ds-actions' }, button(status.encrypted ? 'changePassphrase' : 'enableEncryption', () => withPassphrase(status.encrypted ? 'change-passphrase' : 'enable-encryption'), !status.signedIn, true),
                       status.encrypted && button('lock', () => run('lock'))))),
-              conflicts.length > 0 && card('conflicts', text('conflictsHelp'), ...conflicts.map(item => {
+                !status.initialized && button('openOverview', () => selectTab('overview'))),
+              panel('conflicts', conflicts.length === 0 && text('emptyConflicts'), conflicts.length > 0 && card('conflicts', text('conflictWarning', 'ds-warning'), ...conflicts.map(item => {
                 const selected = choices[item.id];
                 const current = selected?.localHash === item.localHash && selected?.remoteHash === item.remoteHash;
                 return h('div', { className: 'ds-conflict', key: item.id }, h('strong', null, item.name), h('span', { className: 'ds-muted' }, ` · ${typeName(item.type)}`),
@@ -1133,12 +1247,12 @@ window.__ModuleLoader__.load({
                     const side = event.target.value; setChoices(previous => ({ ...previous, [item.id]: side ? { side, localHash: item.localHash, remoteHash: item.remoteHash } : undefined }));
                   } }, h('option', { value: '' }, t('choose')), h('option', { value: 'local' }, `${t('local')} — ${t(item.localDeleted ? 'deleted' : 'present')}`),
                     h('option', { value: 'remote' }, `${t('remote')} — ${t(item.remoteDeleted ? 'deleted' : 'present')}`))));
-              }), button('applyChoices', () => run('sync', { decisions: Object.fromEntries(conflicts.map(item => [item.id, choices[item.id]])) }, () => setChoices({})), !validChoices || !usable || !status.signedIn, true)),
-              card('assets', text('trackingHelp'),
+              }), button('applyChoices', () => run('sync', { decisions: Object.fromEntries(conflicts.map(item => [item.id, choices[item.id]])) }, () => setChoices({})), !validChoices || !usable || !status.signedIn, true))),
+              panel('assets', card('assets',
                 checkbox('trackingAgentsEnabled', tracking.agentsEnabled ?? false, enabled => {
                   if (enabled) { setError(''); setConfirm({ kind: 'agents-enable' }); }
                   else run('tracking-configure', { agentsEnabled: false });
-                }), text('trackingAgentsHelp'),
+                }),
                 h('div', { className: 'ds-actions' }, button('trackingRefresh', () => run('tracking-refresh'))),
                 tracking.lastScan && row('trackingLastScan', date(tracking.lastScan)),
                 ...(tracking.issues || []).map((issue, index) => h('p', { key: `${issue.code}-${index}`, role: 'alert', className: 'ds-warning' },
@@ -1147,10 +1261,10 @@ window.__ModuleLoader__.load({
                   const items = (tracking.items || []).filter(item => item.origin?.root === root);
                   return h('section', { className: 'ds-tracking-root', key: root }, h('h4', null, t(root === 'dsh' ? 'trackingDshRoot' : 'trackingAgentsRoot')),
                     items.length ? items.map(trackingItem) : text('trackingEmpty'));
-                })),
-              card('backups', text('backupsHelp'), !(status.backups || []).length && text('emptyBackups'),
+                }))),
+              panel('backups', card('backups', text('restoreConfirm', 'ds-warning'), !(status.backups || []).length && text('emptyBackups'),
                 ...(status.backups || []).map(backup => h('div', { className: 'ds-row', key: backup.id }, h('span', null, `${date(backup.createdAt)} · ${t(backup.side === 'remote' ? 'remote' : 'local')}`),
-                  button('restore', () => setConfirm({ kind: 'restore', id: backup.id }), !usable))))));
+                  button('restore', () => setConfirm({ kind: 'restore', id: backup.id }), !usable)))))));
         }
         ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section', id: 'dsh-sync', order: 25, label: () => t('title'),
