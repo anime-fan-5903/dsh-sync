@@ -1,26 +1,46 @@
-# Storage protocol, version 1
+# Storage protocol
 
 ## Local-first assets
 
 The authoritative published state is a OneDrive snapshot. Each device retains a local working collection and the content hash of every asset at its last successful sync. Local modifications survive network and authorization failures.
 
-Native assets have stable UUIDs and prompt or Skill types. Every asset requires a validated native origin; unsupported types or missing origins are rejected without rewriting local or cloud data. A Skill is one conflict unit and includes base64-encoded resources. Deleting a known asset is represented by its absence relative to the local baseline. The baseline stores hashes, not complete historical bodies.
+Supported types are `prompt`, `skill`, `settings`, and `model-config`. Native prompts and Skills require validated native origins; configuration assets instead identify an explicitly supported namespace. Unsupported types and malformed records are rejected without rewriting local or cloud data. A Skill is one conflict unit and includes base64-encoded resources; a configuration namespace is one conflict unit. Deleting a known asset is represented by its absence relative to the local baseline. The baseline stores hashes, not complete historical bodies.
 
 For each asset, equal local and cloud hashes converge. A change on only one side wins automatically. Different changes on both sides require a user choice tied to both displayed hashes. A stale choice never authorizes replacing a newer revision. Independent asset changes converge without a text merge.
 
 ## Native targets and local policy
 
-Every prompt/Skill asset carries exactly `origin: { root, path }`, where `root` is `dsh` or `agents` and `path` is a validated root-relative instruction or Skill target. Native IDs are deterministic UUIDv8 values from the root/path. Native names and Skill metadata are canonical. Case-insensitive target collisions, traversal, arbitrary roots, and unexpected origin fields are rejected. The snapshot envelope uses format 1.
+Every prompt/Skill asset carries exactly `origin: { root, path }`, where `root` is `dsh` or `agents` and `path` is a validated root-relative instruction or Skill target. Native IDs are deterministic UUIDv8 values from the root/path. Native names and Skill metadata are canonical. Case-insensitive target collisions, traversal, arbitrary roots, and unexpected origin fields are rejected. Native-only snapshots can use format 1; snapshots containing configuration assets use format 2.
 
 Before merging, the native adapter captures allowed working files instead of treating its previous cache as authoritative. Disabled-root and settled-exclusion remote assets pass through unchanged without local participation. A confirmed pending exclusion filters the selected ID out of the next published snapshot, including its name and origin metadata. The local `tracking.json` holds root grants, exclusions, discovered-item inventory, and pending deletion requests; none of those records appear in the cloud payload. Exclusions are not global tombstones and other devices have independent policies.
 
-After conditional publication, the adapter checks that the real files still match the captured snapshot before writing. Per-file expected bytes are rechecked; replacements use temporary-file rename, and only known unchanged files can be removed. Unknown Skill resources prevent whole-Skill deletion. A post-publication edit or filesystem failure does not advance the stored baseline. A multi-file Skill is one merge/backup unit but not an atomic filesystem transaction. Native backup restoration writes the actual target and stages the result for the next normal cloud merge.
+After conditional publication, the adapter checks that the real files still match the captured snapshot before writing. Per-file expected bytes are rechecked; existing targets move to root-local recovery storage and new content is published with a no-clobber hard link. Only known unchanged files can be removed. Unknown Skill resources prevent whole-Skill deletion. A post-publication edit or filesystem failure does not advance the stored baseline. A multi-file Skill is one merge/backup unit but not an atomic filesystem transaction. Native backup restoration writes the actual target and stages the result for the next normal cloud merge.
 
 See [native asset tracking](native-assets.md) for the exact discovery whitelist, root opt-in, limits, and deletion consequences.
 
+## Portable configuration
+
+A configuration asset contains exactly `{ id, type, name, namespace, values }`. Its type is `settings` or `model-config`, and `name` equals `namespace`. Its stable UUIDv8 derives from SHA-256 of `dsh-sync-config-v1:<type>:<namespace>`, truncated to 16 bytes with UUID version/variant bits set. It has no native `origin` and cannot name an arbitrary filesystem target.
+
+Only whitelisted, redacted user overrides are exported; resolved defaults and schema dumps are not synchronized. General namespaces and fields are:
+
+- `locale`: `preference`
+- `ui-theme`: `preference`, `fontSize`, `codeFontSize`, `terminalFontSize`
+- `ui-chat`: `transcriptView`, `collapseTiming`, `foldedReplies`, `performanceUsage`
+
+Model namespaces are `llm-deepseek`, `llm-deepseek-api-key`, and `llm-pi-ai`. Their portable subsets cover validated endpoints, supported model definitions, and selected inference/transport parameters. Keys, tokens, `apiKeyEnv`, custom headers, arbitrary profile entries, and unknown fields are not accepted. Endpoint values cannot contain user information, query strings, or fragments. Configuration validation also bounds depth, node count, and encoded size; the exact field/value whitelist lives in [portable configuration validation](../src/portable-config.js).
+
+Each namespace is one merge/conflict asset. Applying a selected version uses field-level `settings.mutate` operations with the captured namespace revision, preserving unrelated settings and local-only fields on retained providers and model entries. A missing field resets to the target device's inherited value. Explicit model confirmation also authorizes resetting omitted provider and model-override entries as whole entries, including their local credential references; stored credential records are never deleted, and inherited providers can remain active. Missing Host namespaces do not authorize creating plugins or writing arbitrary profile entries. There is no automatic field-level conflict merge or cross-namespace transaction.
+
+The local applied-configuration ledger records a selected asset and a hash of the user fields materialized by the Host. While those fields remain unchanged, capture retains the selected intent instead of exporting inherited values materialized by `unset`. Local portable edits invalidate the ledger. This avoids reset chatter and preserves explicit incoming values even when devices have different composition defaults. Ledger state is not synchronized.
+
+All incoming model changes, including removals, are staged in local `targets.json`. Explicit user confirmation must match the pending asset fingerprint and unchanged local configuration before revision-checked application. A successful cloud merge does not imply that staged model changes are active.
+
+The same file stores device-local target choices and scope acceptance. Prompts, Skills, and DSH options default on; model configuration and plugins default off. Plugin restoration is unavailable in v0.3.0. Existing vault upgrades require scope confirmation before settings or models participate. Disabled categories pass remote assets through without local application or deletion; re-enabling resets their baseline. `.agents` participation and native exclusions remain separate local policy in `tracking.json`.
+
 ## OneDrive publication
 
-The root directory is `DSH Sync`. The permanent `vault.json` marker identifies the format, vault UUID, and stable head item ID. Bootstrap creates uniquely named candidate objects and then creates the permanent marker with conflict behavior `fail`. A losing initializer reads the winner rather than replacing it.
+The root directory is `DSH Sync`. The permanent `vault.json` marker remains at format 1 and identifies the vault UUID and stable head item ID; its version is independent of the snapshot envelope version. Bootstrap creates uniquely named candidate objects and then creates the permanent marker with conflict behavior `fail`. A losing initializer reads the winner rather than replacing it.
 
 Snapshots have unique UUID-based names and are uploaded before publication. The head item's **name**, rather than its contents, contains the current snapshot UUID. A metadata PATCH renames that same item with its previously read `eTag` in `If-Match`. The documented metadata update precondition is the publication boundary; stale updates return 412 and leave local state pending. A small-file content PUT is not treated as a documented compare-and-swap primitive.
 
@@ -36,7 +56,9 @@ Periodic checks compare local files and remote metadata while retaining the curr
 
 ## Snapshot envelope
 
-Every snapshot carries `format`, `vaultId`, `revision`, `mode`, and `data`. Plain mode contains the validated asset payload directly. Encrypted mode includes a keyring and an authenticated encrypted payload. The payload contains only `assets`.
+Every snapshot carries `format`, `vaultId`, `revision`, `mode`, and `data`. Format 1 remains readable for native-only assets; format 2 supports native and configuration assets. Configuration assets are rejected in a format-1 envelope. Clients that only support format 1 refuse format 2 before writing, rather than dropping unknown assets. The engine retains an observed format-2 snapshot version for subsequent publication. Unknown versions are refused.
+
+Plain mode contains the validated asset payload directly. Encrypted mode includes a keyring and an authenticated encrypted payload. The payload contains only `assets`. Snapshot cryptographic associated data binds the envelope version through distinct `snapshot` and `snapshot-v2` purposes; changing the version of an encrypted envelope cannot reinterpret its authenticated payload.
 
 Encryption uses a random 256-bit master key and AES-256-GCM with random 96-bit nonces. Associated data binds the format, vault, revision, keyring, and purpose. A scrypt-derived key wraps the master key for passphrase access; an independent random recovery key wraps the same master key. Fixed validated KDF parameters prevent an untrusted file from requesting arbitrary memory or CPU work.
 

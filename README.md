@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-Sign in with your Microsoft account to synchronize your native DSH instructions and user Skills across devices, with optional cloud encryption.
+Sign in with your Microsoft account to synchronize native DSH instructions, user Skills, reviewed DSH options, and optional model configuration across devices, with optional cloud encryption.
 
 **Trial release:** back up important files before use. Synchronization changes original files, and the plugin is not a backup service or a guarantee against data loss.
 
@@ -14,7 +14,7 @@ Sign in with your Microsoft account to synchronize your native DSH instructions 
 - Windows protected automatic unlock; manual unlock on other platforms
 - Settings that follow DSH's active language: English, Simplified Chinese, or Japanese
 
-Conversations, credentials, plugin installations, and arbitrary project/profile files are not synchronized. The additional `.agents` root is off by default. There is no built-in editor, text auto-merge, or team-sharing workflow.
+Conversations, credentials, plugin installations, and arbitrary project/profile files are not synchronized. Configuration synchronization is limited to the reviewed fields below. The additional `.agents` root is off by default. There is no built-in editor, text auto-merge, or team-sharing workflow.
 
 ## Get started
 
@@ -22,13 +22,25 @@ Tested on DSH `0.2.2-rc.1`. Nearby versions may be compatible, but compatibility
 
 1. Install the package directory through DSH's plugin manager, restart DSH, and open **Settings → DSH Sync**.
 2. Sign in with Microsoft. If the browser does not open, use **Open Microsoft sign-in**.
-3. Review **Sync assets** and exclude anything that should stay local. Initialize a new vault or join the existing vault in the same account; do not reinitialize a working vault.
+3. Review **Sync targets** and **Sync assets**, confirm any expanded scope, and exclude anything that should stay local. Initialize a new vault or join the existing vault in the same account; do not reinitialize a working vault.
 4. If using encryption, choose a passphrase of at least 12 characters and save the one-time recovery key separately from this device and OneDrive. On an existing encrypted vault, unlock once to establish automatic unlock on supported Windows devices.
 5. Edit files normally and wait for **Synced** before switching devices. **View** opens the original file in the Host's registered application.
 
 ## Settings navigation
 
-Five horizontal tabs organize the controls: **Overview**, **Sync assets**, **Security**, **Conflicts**, and **Backups**. Switching tabs retains form entries and conflict selections while the settings remain open.
+Six horizontal tabs organize the controls: **Overview**, **Sync targets**, **Sync assets**, **Security**, **Conflicts**, and **Backups**. Switching tabs retains form entries and conflict selections while the settings remain open.
+
+### Sync targets
+
+Prompts, Skills, and DSH options are enabled by default; model configuration and plugins are off. Plugin restoration is unavailable in v0.3.0, and its checkbox is disabled. The separate `.agents` opt-in remains off by default. Review both **Sync targets** and **Sync assets** before initializing or joining a vault.
+
+Target choices and confirmations are device-local policy in `targets.json`, never cloud assets. Upgrading an existing vault requires scope confirmation before DSH options or model configuration participate. Turning a category off preserves local and cloud copies; re-enabling starts from a fresh baseline and checks differences again. This differs from an explicitly confirmed per-file exclusion, which removes the active cloud copy.
+
+DSH options use a fixed whitelist: `locale.preference`; `ui-theme` appearance preference and font, code-font, and terminal-font sizes; and `ui-chat` transcript, collapse, folded-reply, and performance-display preferences. Only reviewed user overrides are exported, not a schema dump or arbitrary profile configuration. Credentials, security policies, device paths, and installation permissions stay local.
+
+Model configuration supports a portable subset of `llm-deepseek`, `llm-deepseek-api-key`, and `llm-pi-ai`: supported endpoints, model definitions, and selected inference/transport parameters. API keys, tokens, `apiKeyEnv` credential bindings, and custom headers are excluded. Enabling it requires a risk acknowledgement. **All incoming model changes are staged** for explicit local confirmation tied to their fingerprint, not only endpoint changes. A changed endpoint may send conversations and existing local keys to a different host; encryption does not make that connection safe.
+
+Configuration conflicts are resolved per namespace, not per field. Application uses field-level mutations with revision checks to preserve local secrets and unrelated settings. Syncing a model asset does not mean its pending changes have been applied.
 
 Ordinary explanations are available from the **?** buttons beside the relevant options or card headings. Hover or focus for 500 ms to show a help bubble; click or tap to pin it for reading. Click the button again, click outside the bubble, or press Escape to dismiss it. Key warnings remain visible rather than being hidden in help bubbles.
 

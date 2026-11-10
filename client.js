@@ -235,7 +235,27 @@ window.__ModuleLoader__.load({
     "error_EACCES": "Access was denied. Check the Host's access permissions for the affected resource.",
     "error_EPERM": "The operating system did not permit this operation. Check the Host's permissions and restrictions.",
     "error_ENOENT": "A required file or directory could not be found. Refresh and check the affected location.",
-    "error_encryption-local-failed": "The encryption change succeeded in OneDrive, but this device could not finish applying or saving it, including its automatic-unlock cache. Save this new recovery key now. The cloud change was not rolled back. Fix local file access or storage problems, then refresh and sync; you may need to unlock with the new passphrase or this key."
+    "error_encryption-local-failed": "The encryption change succeeded in OneDrive, but this device could not finish applying or saving it, including its automatic-unlock cache. Save this new recovery key now. The cloud change was not rolled back. Fix local file access or storage problems, then refresh and sync; you may need to unlock with the new passphrase or this key.",
+    "tabTargets": "Sync targets",
+    "targetPrompts": "Prompts",
+    "targetSkills": "Skills",
+    "targetSettings": "DSH options",
+    "targetModels": "Model configuration",
+    "targetPlugins": "Plugins",
+    "targetsConfirmTitle": "Confirm sync scope",
+    "targetsConfirm": "Confirm and save",
+    "targetsScopeHelp": "DSH options include reviewed appearance and chat preferences only. Credentials, security policies, local paths and installation permissions are never synchronized.",
+    "targetsPolicyHelp": "Choices apply to this device. Turning a category off stops participation without deleting local or cloud copies. Re-enabling checks differences again.",
+    "targetsRisk": "Model and plugin synchronization may expose service details and expand the attack surface. Encryption does not authorize remote connections or code execution.",
+    "targetsUpgradeConsent": "This update adds DSH options. Confirm the expanded scope before options begin synchronizing.",
+    "targetsModelsHelp": "Model configuration excludes API keys, login tokens, credential bindings and custom headers. Incoming model changes require local confirmation before application. Plugin restoration is not available in this release.",
+    "targetsUnavailable": "The Host settings service is unavailable. Configuration synchronization is not active.",
+    "modelsPending": "Model configuration awaiting confirmation",
+    "modelsApplyWarning": "Review these settings before applying. A changed API endpoint can send conversations and existing local credentials to a different service. Local credential bindings and custom headers on retained providers will be preserved.",
+    "modelsApply": "Confirm and apply model configuration",
+    "modelsBefore": "Current portable overrides",
+    "modelsAfter": "Incoming portable overrides",
+    "modelsResetWarning": "Missing fields reset to the inherited settings on this device. Resetting an omitted provider or override clears its local overrides, including local credential references on that provider; stored credentials are not deleted. Inherited providers may remain active."
   },
   "zh-CN": {
     "title": "DSH Sync",
@@ -466,7 +486,27 @@ window.__ModuleLoader__.load({
     "error_EACCES": "访问被拒绝。请检查 Host 对相关资源的访问权限。",
     "error_EPERM": "操作系统不允许此操作。请检查 Host 的权限和限制。",
     "error_ENOENT": "找不到所需的文件或目录。请刷新并检查相关位置。",
-    "error_encryption-local-failed": "加密更改已在 OneDrive 中成功发布，但此设备未能完成本地应用或保存（包括自动解锁缓存）。请立即保存这个新恢复密钥。云端更改并未回滚。修复本地文件访问或存储问题后，请刷新并同步；你可能需要使用新口令或此密钥解锁。"
+    "error_encryption-local-failed": "加密更改已在 OneDrive 中成功发布，但此设备未能完成本地应用或保存（包括自动解锁缓存）。请立即保存这个新恢复密钥。云端更改并未回滚。修复本地文件访问或存储问题后，请刷新并同步；你可能需要使用新口令或此密钥解锁。",
+    "tabTargets": "同步目标",
+    "targetPrompts": "提示词",
+    "targetSkills": "Skill",
+    "targetSettings": "DSH 选项",
+    "targetModels": "模型配置",
+    "targetPlugins": "插件",
+    "targetsConfirmTitle": "确认同步范围",
+    "targetsConfirm": "确认并保存",
+    "targetsScopeHelp": "DSH 选项仅包含经过审核的外观和聊天偏好。不包含凭据、安全策略、本机路径和安装授权。",
+    "targetsPolicyHelp": "选择仅对本设备生效。关闭类别会停止参与，不删除本地或云端副本；重新开启时会重新核对差异。",
+    "targetsRisk": "同步模型及插件可能暴露服务信息并扩大攻击面。加密不等于授权远端连接或代码执行。",
+    "targetsUpgradeConsent": "此更新新增 DSH 选项同步。确认扩大的范围后才会开始同步选项。",
+    "targetsModelsHelp": "模型配置不含 API 密钥、登录令牌、凭据绑定和自定义请求头。收到的模型变更需在本地确认后应用。此版本暂不支持插件恢复。",
+    "targetsUnavailable": "Host 设置服务不可用，配置同步尚未生效。",
+    "modelsPending": "模型配置等待确认",
+    "modelsApplyWarning": "请先核对配置。修改 API 地址可能将对话及本机已有凭据发送到另一服务。保留的提供商条目中的本机凭据绑定和自定义请求头会保留。",
+    "modelsApply": "确认并应用模型配置",
+    "modelsBefore": "当前可同步覆盖项",
+    "modelsAfter": "收到的可同步覆盖项",
+    "modelsResetWarning": "缺失字段会重置为本设备的继承设置。重置未包含的提供商或覆盖项会清除其本地覆盖，包括该提供商的本机凭据引用；不会删除凭据库中的密钥。继承的提供商可能仍保持启用。"
   },
   "ja": {
     "title": "DSH Sync",
@@ -697,7 +737,27 @@ window.__ModuleLoader__.load({
     "error_EACCES": "アクセスが拒否されました。該当するリソースへの Host のアクセス権を確認してください。",
     "error_EPERM": "OS がこの操作を許可しませんでした。Host の権限と制限を確認してください。",
     "error_ENOENT": "必要なファイルまたはディレクトリが見つかりません。更新して該当する場所を確認してください。",
-    "error_encryption-local-failed": "暗号化の変更は OneDrive で成功しましたが、このデバイスでの適用または保存（自動ロック解除キャッシュを含む）を完了できませんでした。この新しい回復キーを今すぐ保存してください。クラウドの変更は取り消されていません。ローカルファイルへのアクセスやストレージの問題を解決してから、更新して同期してください。新しいパスフレーズまたはこのキーでロックを解除する必要がある場合があります。"
+    "error_encryption-local-failed": "暗号化の変更は OneDrive で成功しましたが、このデバイスでの適用または保存（自動ロック解除キャッシュを含む）を完了できませんでした。この新しい回復キーを今すぐ保存してください。クラウドの変更は取り消されていません。ローカルファイルへのアクセスやストレージの問題を解決してから、更新して同期してください。新しいパスフレーズまたはこのキーでロックを解除する必要がある場合があります。",
+    "tabTargets": "同期対象",
+    "targetPrompts": "プロンプト",
+    "targetSkills": "Skill",
+    "targetSettings": "DSH オプション",
+    "targetModels": "モデル設定",
+    "targetPlugins": "プラグイン",
+    "targetsConfirmTitle": "同期範囲の確認",
+    "targetsConfirm": "確認して保存",
+    "targetsScopeHelp": "DSH オプションは確認済みの外観とチャットの設定のみです。認証情報、セキュリティ方針、ローカルパス、インストール許可は同期しません。",
+    "targetsPolicyHelp": "選択はこのデバイスだけに適用されます。無効にしてもローカルとクラウドのコピーは削除しません。再有効化時に差分を再確認します。",
+    "targetsRisk": "モデルとプラグインの同期はサービス情報の露出や攻撃対象の拡大につながる可能性があります。暗号化は接続やコード実行の許可ではありません。",
+    "targetsUpgradeConsent": "この更新は DSH オプションを追加します。範囲を確認するまでオプションの同期は開始しません。",
+    "targetsModelsHelp": "API キー、ログイントークン、認証情報の参照、カスタムヘッダーは含みません。受信したモデル変更はローカルで確認後に適用します。このリリースではプラグインの復元は利用できません。",
+    "targetsUnavailable": "Host の設定サービスを利用できません。設定の同期は無効です。",
+    "modelsPending": "確認待ちのモデル設定",
+    "modelsApplyWarning": "適用前に確認してください。API 接続先の変更は会話や既存の認証情報を別のサービスに送信する可能性があります。残るプロバイダーのローカル認証情報参照とヘッダーは保持されます。",
+    "modelsApply": "確認してモデル設定を適用",
+    "modelsBefore": "現在の同期対象の上書き",
+    "modelsAfter": "受信した同期対象の上書き",
+    "modelsResetWarning": "省略された項目はこのデバイスの継承設定に戻ります。プロバイダーの上書きをリセットするとローカルの認証情報参照も戻りますが、保存された認証情報自体は削除しません。継承プロバイダーは引き続き有効な場合があります。"
   }
 };
     // END GENERATED LOCALES
@@ -990,7 +1050,7 @@ window.__ModuleLoader__.load({
             if (!dialog.open) dialog.showModal();
             return () => { if (dialog.open) dialog.close(); };
           }, [recovery]);
-          const trackingConfirmation = ['tracking-exclude', 'agents-enable', 'restore'].includes(confirm?.kind);
+          const trackingConfirmation = ['tracking-exclude', 'agents-enable', 'restore', 'targets'].includes(confirm?.kind);
           React.useEffect(() => {
             const dialog = trackingDialog.current;
             if (!dialog || !trackingConfirmation || recovery) return;
@@ -1037,7 +1097,7 @@ window.__ModuleLoader__.load({
           }
           const disabled = pending || !!recovery;
           const usable = !!status?.initialized && !status?.locked;
-          const tabs = [['overview', 'tabOverview'], ['assets', 'tabAssets'], ['security', 'tabSecurity'], ['conflicts', 'tabConflicts'], ['backups', 'tabBackups']];
+          const tabs = [['overview', 'tabOverview'], ['targets', 'tabTargets'], ['assets', 'tabAssets'], ['security', 'tabSecurity'], ['conflicts', 'tabConflicts'], ['backups', 'tabBackups']];
           function selectTab(tab, focus = false) {
             setActiveTab(tab);
             if (focus) document.getElementById(settingsId + '-tab-' + tab)?.focus();
@@ -1143,7 +1203,7 @@ window.__ModuleLoader__.load({
           }
           const conflicts = status?.conflicts || [];
           const validChoices = conflicts.length > 0 && conflicts.every(item => choices[item.id]?.localHash === item.localHash && choices[item.id]?.remoteHash === item.remoteHash);
-          const typeName = type => t({ prompt: 'typePrompt', skill: 'typeSkill' }[type] || 'assets');
+          const typeName = type => t({ prompt: 'typePrompt', skill: 'typeSkill', settings: 'targetSettings', 'model-config': 'targetModels' }[type] || 'assets');
           const phaseName = phase => t({ idle: 'phaseIdle', syncing: 'phaseSyncing', synced: 'phaseSynced', pending: 'phasePending', conflict: 'phaseConflict', locked: 'phaseLocked', error: 'phaseError' }[phase] || 'phaseUnknown');
           const date = value => value ? new Date(value).toLocaleString(locale.active === 'zh' ? 'zh-CN' : locale.active) : t('never');
           return h('div', { className: 'dsh-sync', 'aria-busy': pending },
@@ -1171,16 +1231,18 @@ window.__ModuleLoader__.load({
               'aria-labelledby': 'dsh-sync-tracking-confirm-title',
               onCancel: event => { event.preventDefault(); cancelTrackingConfirmation(); },
               onKeyDownCapture: event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancelTrackingConfirmation(); } } },
-              h('h2', { id: 'dsh-sync-tracking-confirm-title' }, t(confirm.kind === 'agents-enable' ? 'trackingAgentsTitle' : confirm.kind === 'restore' ? 'restoreTitle' : 'trackingExcludeTitle')),
-              confirm.kind === 'agents-enable' ? h(React.Fragment, null, text('trackingAgentsWarning', 'ds-warning'), text('trackingAgentsHelp')) :
+              h('h2', { id: 'dsh-sync-tracking-confirm-title' }, t(confirm.kind === 'targets' ? 'targetsConfirmTitle' : confirm.kind === 'agents-enable' ? 'trackingAgentsTitle' : confirm.kind === 'restore' ? 'restoreTitle' : 'trackingExcludeTitle')),
+              confirm.kind === 'targets' ? h(React.Fragment, null, text('targetsScopeHelp'), text('targetsRisk', 'ds-warning')) :
+                confirm.kind === 'agents-enable' ? h(React.Fragment, null, text('trackingAgentsWarning', 'ds-warning'), text('trackingAgentsHelp')) :
                 confirm.kind === 'restore' ? text('restoreConfirm', 'ds-warning') :
                 h(React.Fragment, null, h('strong', null, confirm.name), h('p', { className: 'ds-muted' }, trackingOrigin(confirm.origin)),
                   text('trackingExcludeLocal'), text('trackingExcludeCloud', 'ds-warning'), text('trackingExcludeRetention', 'ds-warning')),
               error && h('p', { role: 'alert', className: 'ds-error' }, safeError(error)),
               h('div', { className: 'ds-dialog-actions' },
                 h('button', { type: 'button', autoFocus: true, disabled: pending, onClick: cancelTrackingConfirmation }, t('cancel')),
-                button(confirm.kind === 'agents-enable' ? 'trackingAgentsConfirm' : confirm.kind === 'restore' ? 'confirmRestore' : 'trackingExcludeConfirm', () => {
-                  if (confirm.kind === 'agents-enable') run('tracking-configure', { agentsEnabled: true, confirmOverwrite: true }, () => setConfirm(null));
+                button(confirm.kind === 'targets' ? 'targetsConfirm' : confirm.kind === 'agents-enable' ? 'trackingAgentsConfirm' : confirm.kind === 'restore' ? 'confirmRestore' : 'trackingExcludeConfirm', () => {
+                  if (confirm.kind === 'targets') run('targets-configure', { enabled: confirm.enabled, confirmRisk: true, confirmScope: true }, () => setConfirm(null));
+                  else if (confirm.kind === 'agents-enable') run('tracking-configure', { agentsEnabled: true, confirmOverwrite: true }, () => setConfirm(null));
                   else if (confirm.kind === 'restore') run('backup-restore', { id: confirm.id }, () => setConfirm(null));
                   else run('tracking-exclude', { id: confirm.id, confirmCloudDelete: true }, () => setConfirm(null));
                 }, confirm.kind === 'restore' && !usable, true))),
@@ -1222,6 +1284,22 @@ window.__ModuleLoader__.load({
                 row('directory', status.dataDirectory || '—'), text('localWarning', 'ds-warning'),
                 checkbox('autoSync', status.settings?.enabled, enabled => run('configure', { enabled })),
                 h('div', { className: 'ds-actions' }, button('sync', () => run('sync'), !status.signedIn || status.locked, true), button('refresh', refresh)))),
+              panel('targets', card('tabTargets', text('targetsScopeHelp'), text('targetsPolicyHelp'),
+                status.targets?.needsConsent && h('div', { className: 'ds-warning' }, text('targetsUpgradeConsent'),
+                  button('targetsConfirm', () => setConfirm({ kind: 'targets', enabled: status.targets.enabled }))),
+                ...[['prompt', 'targetPrompts'], ['skill', 'targetSkills'], ['settings', 'targetSettings'], ['model-config', 'targetModels'], ['plugins', 'targetPlugins']].map(([key, label]) =>
+                  checkbox(label, status.targets?.enabled?.[key] ?? ['prompt', 'skill', 'settings'].includes(key), value => {
+                    const enabled = { [key]: value };
+                    if (status.targets?.needsConsent || (value && ['model-config', 'plugins'].includes(key))) setConfirm({ kind: 'targets', enabled });
+                    else run('targets-configure', { enabled });
+                  }, key === 'plugins')),
+                text('targetsRisk', 'ds-warning'), text('targetsModelsHelp'),
+                status.targets?.settingsAvailable === false && text('targetsUnavailable', 'ds-warning')),
+                ...(status.targets?.pendingModels || []).map(item => card('modelsPending', h('strong', null, item.name), text('modelsApplyWarning', 'ds-warning'),
+                  text('modelsResetWarning', 'ds-warning'),
+                  h('h4', null, t('modelsBefore')), h('pre', { className: 'ds-key' }, JSON.stringify(item.previous ?? {}, null, 2)),
+                  h('h4', null, t('modelsAfter')), h('pre', { className: 'ds-key' }, JSON.stringify(item.values, null, 2)),
+                  button('modelsApply', () => run('model-apply', { id: item.id, fingerprint: item.fingerprint }), false, true)))),
               panel('security', status.initialized && card('security',
                 checkbox('deviceTrustRemember', !!deviceTrust.available && !!deviceTrust.remember, remember => run('device-trust-configure', { remember }), !deviceTrust.available),
                 !deviceTrust.available && text('deviceTrustUnavailable', 'ds-warning'),

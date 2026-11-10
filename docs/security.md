@@ -18,7 +18,7 @@ Trusted-device automatic unlock uses a separate operating-system-protected maste
 
 The application is a native public client using authorization code with PKCE, one-use state, and a loopback callback. The client ID is public. No client secret is distributed. Root-directory access requires delegated `Files.ReadWrite`; this permission is broader than the dedicated folder. The application limits its own operations but cannot change the scope Microsoft grants.
 
-Login, unlock, device-trust preferences, encryption changes, native exclusions, and additional-root participation require user actions in Settings. Agent tools can inspect permitted tracking/status metadata and perform supported synchronization and backup operations, but cannot approve those grants or bypass their confirmations.
+Login, unlock, device-trust preferences, encryption changes, sync-target scope and risk acknowledgements, model-change application, native exclusions, and additional-root participation require user actions in the plugin UI. Agent tools can inspect permitted tracking/status metadata and perform supported synchronization and backup operations, but cannot approve those grants or bypass their confirmations.
 
 ## Trusted-device automatic unlock
 
@@ -54,9 +54,19 @@ Exclusions are local policy, stored with their metadata outside the discovery wh
 
 Native writes validate logical targets and content limits before mutation, do not follow links/junctions, check for concurrent edits, and avoid recursive removal of unknown files. Resource filtering is not a general secret detector; users remain responsible for instruction bodies and resource contents.
 
+## Portable configuration and local consent
+
+The **Sync targets** defaults enable prompts, Skills, and reviewed DSH options, but not model configuration or plugins. Category grants and scope consent are device-local in `targets.json`; remote assets cannot change them. Existing vault upgrades require explicit confirmation before options or models participate. Disabling a category preserves local and remote copies; re-enabling starts with a fresh baseline. This is not cloud-history erasure. The separate `.agents` grant remains off by default, and disabled native categories are not read for content.
+
+General configuration is restricted to `locale.preference`, reviewed `ui-theme` appearance/size fields, and `ui-chat` display preferences. Models use a portable subset of `llm-deepseek`, `llm-deepseek-api-key`, and `llm-pi-ai`. Export selects whitelisted user overrides from redacted settings; import rejects unexpected fields. Neither operation copies an arbitrary profile or trusts a schema dump. Keys, tokens, `apiKeyEnv` credential bindings, custom headers, security policy, device paths, and installation grants are outside this configuration scope. Text in allowed values and native assets still requires user review; the whitelist is not a general secret scanner.
+
+All incoming model changes, including parameter changes and removals, are staged rather than immediately applied. The user must confirm the current asset fingerprint locally; local changes invalidate the pending choice. Changing an endpoint may send conversations and existing local keys to another host even though the keys themselves were never synchronized. Enabling model sync requires acknowledgement of increased exposure and attack surface. Cloud encryption does not authorize connections or make their destinations trustworthy.
+
+Configuration conflicts are per namespace. Field-level mutations with revision checks preserve unrelated fields and local-only settings on retained providers and model entries instead of replacing the profile. The local confirmation shows previous and incoming portable overrides. Omitted provider and model-override entries reset as complete entries, which can remove their local credential references without deleting stored credential records; inherited providers may remain active. Configuration application is not a cross-namespace transaction. Pending model values and category policy are local plaintext in `targets.json`; cloud encryption does not encrypt that staging file or the Host's working configuration.
+
 ## Asset and installation safety
 
-Synchronized instructions and Skill resources do not authorize automatic plugin installation, package build scripts, compatibility exemptions, or local security-setting changes. Review instructions and scripts before using or invoking them.
+Plugin restoration is unavailable in v0.3.0; the Plugins target remains off with a disabled checkbox. No synchronized asset authorizes automatic plugin installation, package build scripts, compatibility exemptions, or local security-setting changes. Review instructions and Skill scripts before using or invoking them.
 
 Resource paths reject traversal, nonportable components, and symbolic links. The plugin excludes common dependency, Git, and environment-file locations but cannot promise a generic secret scanner.
 

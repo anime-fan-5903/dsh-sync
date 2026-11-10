@@ -5,12 +5,14 @@ import { NativeFiles } from './native-files.js';
 import { hash, hashes, invariant, nativeId, nativeOriginKey, validateOrigin, UUID } from './model.js';
 
 const initial = () => ({ format: 1, agentsEnabled: false, exclusions: {}, pendingCloudDeletes: {}, baselineResets: {}, known: {} });
+function isNative(asset) { return !!asset?.origin && ['prompt', 'skill'].includes(asset.type); }
 function descriptor(asset) {
   return { id: asset.id, origin: asset.origin, type: asset.type, name: asset.name,
     fileCount: asset.type === 'skill' ? (asset.fileCount ?? Object.keys(asset.files ?? {}).length) : 1 };
 }
 export class NativeTracking {
-  constructor({ directory, roots }) {
+  constructor({ directory, roots, targets = { prompt: true, skill: true } }) {
+    this.targets = targets;
     this.file = path.join(directory, 'tracking.json'); this.files = new NativeFiles({ roots });
     this.config = initial(); this.savedHash = null; this.inventory = { items: [], issues: [], lastScan: null };
   }
@@ -35,23 +37,30 @@ export class NativeTracking {
     const digest = hash(this.config); if (digest === this.savedHash) return;
     await atomicJson(this.file, this.config); this.savedHash = digest;
   }
-  options() { return { includeAgents: this.config.agentsEnabled, excluded: Object.values(this.config.exclusions).map(item => nativeOriginKey(item.origin)) }; }
-  isEnabled(asset) { return asset.origin.root === 'dsh' || this.config.agentsEnabled; }
+  options() { return { includeAgents: this.config.agentsEnabled, types: ['prompt', 'skill'].filter(type => this.targets[type] === true),
+    excluded: Object.values(this.config.exclusions).map(item => nativeOriginKey(item.origin)) }; }
+  isEnabled(asset) { return isNative(asset) && this.targets[asset.type] === true &&
+    (asset.origin.root === 'dsh' || asset.origin.root === 'agents' && this.config.agentsEnabled); }
   isActive(asset) { return this.isEnabled(asset) && !this.config.exclusions[asset.id]; }
   remember(assets) {
-    for (const asset of assets) this.config.known[asset.id] = descriptor(asset);
+    for (const asset of assets) if (isNative(asset)) this.config.known[asset.id] = descriptor(asset);
+  }
+  resetDisabled(state) {
+    for (const [id, item] of Object.entries(this.config.known)) if (!this.isEnabled(item)) {
+      this.config.baselineResets[id] = descriptor(item); delete state.base[id];
+    }
   }
   async refresh(state) {
     const scan = await this.files.scan(this.options());
     for (const item of scan.entries) this.config.known[item.id] = { ...this.config.known[item.id], ...item };
-    this.remember(state.assets);
+    this.remember(state.assets); this.resetDisabled(state);
     const sourceHash = hash(hashes(scan.assets));
     this.discoveryChanged = this.discoveryHash !== sourceHash; this.discoveryHash = sourceHash;
     this.sourceChanged = sourceHash !== hash(hashes(state.assets.filter(asset => this.isActive(asset))));
     const present = new Map(scan.entries.map(item => [item.id,item]));
     const items = [];
     for (const [id, saved] of Object.entries(this.config.known)) {
-      if (saved.origin.root === 'agents' && !this.config.agentsEnabled) continue;
+      if (!this.isEnabled(saved)) continue;
       const current = present.get(id);
       items.push({ id, origin: saved.origin, type: saved.type, name: saved.name,
         fileCount: current?.fileCount ?? saved.fileCount ?? null, present: !!current?.present,
@@ -68,14 +77,14 @@ export class NativeTracking {
     invariant(!scan.issues.length, scan.issues[0]?.message ?? 'Native asset discovery failed.', 'native-scan-failed');
     this.remember(state.assets); this.remember(scan.assets);
     for (const item of scan.entries) this.config.known[item.id] = { ...this.config.known[item.id], ...item };
-    this.remember(remoteAssets.filter(asset => this.isEnabled(asset)));
+    this.remember(remoteAssets.filter(asset => this.isEnabled(asset))); this.resetDisabled(state);
     const local = scan.assets.filter(asset => this.isActive(asset));
     const remote = remoteAssets.filter(asset => this.isActive(asset));
-    const passthrough = remoteAssets.filter(asset => !this.isActive(asset) && !this.config.pendingCloudDeletes[asset.id]);
+    const passthrough = remoteAssets.filter(asset => isNative(asset) && !this.isActive(asset) && !this.config.pendingCloudDeletes[asset.id]);
     const base = Object.fromEntries(Object.entries(state.base).filter(([id]) => {
-      const known = this.config.known[id]; return !this.config.baselineResets[id] && (!known || this.isActive(known));
+      const known = this.config.known[id]; return !this.config.baselineResets[id] && known && this.isActive(known);
     }));
-    state.assets = local;
+    state.assets = [...state.assets.filter(asset => !isNative(asset)), ...local];
     await this.save();
     return { base, local, remote, passthrough, before: scan.assets, options: this.options() };
   }
@@ -83,13 +92,13 @@ export class NativeTracking {
     return this.files.apply({ before: plan.before, after: assets.filter(asset => this.isActive(asset)), ...plan.options });
   }
   async committed(state, publishedAssets) {
-    const cloud = new Set(publishedAssets.map(asset => asset.id));
+    const cloud = new Set(publishedAssets.filter(isNative).map(asset => asset.id));
     for (const [id,item] of Object.entries(this.config.known)) this.config.known[id] = { ...item, cloudPresent: cloud.has(id) };
     for (const id of Object.keys(this.config.pendingCloudDeletes)) if (!cloud.has(id)) delete this.config.pendingCloudDeletes[id];
-    this.config.baselineResets = {};
-    const local = new Set(state.assets.map(asset => asset.id));
+    this.config.baselineResets = Object.fromEntries(Object.entries(this.config.baselineResets).filter(([, item]) => !this.isEnabled(item)));
+    const local = new Set(state.assets.filter(isNative).map(asset => asset.id));
     for (const id of Object.keys(this.config.known)) {
-      if (!cloud.has(id) && !local.has(id) && !this.config.exclusions[id] && !this.config.pendingCloudDeletes[id]) delete this.config.known[id];
+      if (this.isEnabled(this.config.known[id]) && !cloud.has(id) && !local.has(id) && !this.config.exclusions[id] && !this.config.pendingCloudDeletes[id]) delete this.config.known[id];
     }
     await this.save(); await this.refresh(state);
   }
@@ -117,7 +126,7 @@ export class NativeTracking {
     for (const [id,item] of Object.entries(this.config.known)) if (item.origin.root === 'agents') {
       this.config.baselineResets[id] = descriptor(item); delete state.base[id];
     }
-    state.assets = state.assets.filter(asset => asset.origin.root !== 'agents');
+    state.assets = state.assets.filter(asset => asset.origin?.root !== 'agents');
     await this.save(); await this.refresh(state); return { agentsEnabled };
   }
 }

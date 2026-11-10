@@ -12,7 +12,7 @@ export const toolParameters = { type: 'object', properties: {
 export async function apply(ctx, config = {}) {
   const directory = path.resolve(config.dataDirectory ?? path.join(process.env.DSH_PROFILE_DIR ?? process.env.DSH_HOME ?? path.join(os.homedir(), '.dsh'), 'data', 'dsh-sync'));
   const roots = config.nativeRoots ?? { dsh: path.resolve(process.env.DSH_HOME ?? path.join(os.homedir(), '.dsh')), agents: path.join(os.homedir(), '.agents') };
-  const app = new Application({ directory, roots, credentials: ctx.credentials });
+  const app = new Application({ directory, roots, credentials: ctx.credentials, settings: ctx.get?.('settings') });
   try { await app.start(); } catch (error) { await app.dispose(); throw error; }
   ctx.effect(() => () => app.dispose());
   ctx.effect(() => ctx.connection.fetch.register({

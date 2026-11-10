@@ -5,21 +5,23 @@ import { LocalStore } from './local-store.js';
 import { SyncEngine } from './engine.js';
 import { MICROSOFT_CLIENT_ID } from './config.js';
 import { NativeTracking } from './tracking.js';
+import { SyncTargets } from './sync-targets.js';
 import { DeviceTrust } from './device-trust.js';
 
 export const AGENT_ACTIONS = ['status','tracking-refresh','sync','backup-list','backup-restore'];
 export class Application {
-  constructor({ directory, roots, credentials, deviceProtector, onChange = () => {} }) {
+  constructor({ directory, roots, credentials, settings, deviceProtector, onChange = () => {} }) {
     this.directory = directory; this.credentials = credentials; this.onChange = onChange;
     this.store = new LocalStore(directory); this.tracking = new NativeTracking({ directory, roots });
+    this.targets = new SyncTargets({ directory, native: this.tracking, settings });
     this.deviceTrust = new DeviceTrust({ directory, ...(deviceProtector ? { protector: deviceProtector } : {}) });
     this.deviceError = null; this.auth = null; this.engine = null; this.timer = null; this.closed = false;
     this.nextDiscovery = 0; this.discovering = false;
     this.nextAttempt = 0; this.failures = 0; this.operations = Promise.resolve();
   }
   async start() {
-    await this.store.acquire(); await this.tracking.start(); await this.deviceTrust.start(); await this.build();
-    await this.tracking.refresh(await this.store.read());
+    await this.store.acquire(); await this.targets.start(await this.store.read()); await this.tracking.start(); await this.deviceTrust.start(); await this.build();
+    await this.targets.refresh(await this.store.read());
     this.timer = setInterval(() => this.tick().catch(() => {}), 1000); this.timer.unref?.();
   }
   async build() {
@@ -33,7 +35,7 @@ export class Application {
     };
     this.auth = new MicrosoftAuth({ clientId: MICROSOFT_CLIENT_ID, credentials: credentialAdapter });
     this.backend = new OneDrive({ auth: this.auth });
-    this.engine = new SyncEngine({ store: this.store, backend: this.backend, native: this.tracking, onChange: () => {
+    this.engine = new SyncEngine({ store: this.store, backend: this.backend, native: this.targets, onChange: () => {
       if (this.engine?.phase === 'pending') this.nextAttempt = Math.min(this.nextAttempt || Infinity, Date.now() + 1500);
       this.onChange();
     } });
@@ -50,8 +52,8 @@ export class Application {
   async status() {
     const state = await this.store.read(); const trust = this.deviceTrust.status();
     return { ...await this.engine.status(), signedIn: await this.auth.signedIn(), auth: this.auth.status(),
-      backups: state.backups.filter(backup => backup.origin).map(({id,createdAt,side,origin}) => ({id,createdAt,side,origin})),
-      dataDirectory: this.directory, tracking: this.tracking.status(), localAtRest: 'plaintext',
+      backups: state.backups.filter(backup => backup.origin || backup.type).map(({id,createdAt,side,origin,type,name}) => ({id,createdAt,side,origin,type,name})),
+      dataDirectory: this.directory, tracking: this.tracking.status(), targets: this.targets.status(), localAtRest: 'plaintext',
       deviceTrust: { ...trust, ...(this.deviceError ? { error: this.deviceError } : {}) } };
   }
   /** Return sidebar status without asset hashes, inventory details, or diagnostic messages. */
@@ -122,8 +124,8 @@ export class Application {
       case 'status': return this.status();
       case 'asset-open': return this.openAsset(input.id);
       case 'tracking-refresh': {
-        const state = await this.store.read(); const tracking = await this.tracking.refresh(state);
-        if (this.tracking.sourceChanged && this.tracking.discoveryChanged && !this.engine.conflicts.length) {
+        const state = await this.store.read(); const tracking = await this.targets.refresh(state);
+        if (this.targets.sourceChanged && this.targets.discoveryChanged && !this.engine.conflicts.length) {
           this.engine.phase = 'pending'; this.nextAttempt = Math.min(this.nextAttempt || Infinity, Date.now() + 1500);
         }
         this.onChange(); return { tracking };
@@ -138,6 +140,15 @@ export class Application {
           else result = await this.tracking.configure(state,input.agentsEnabled,input.confirmOverwrite);
           await this.store.write(state); this.nextAttempt = 0; this.engine.phase = 'pending'; this.onChange(); return result;
         });
+      }
+      case 'targets-configure': {
+        const result = await this.store.exclusive(async () => {
+          const state = await this.store.read(); const result = await this.targets.configure(state, input); await this.store.write(state); return result;
+        });
+        await this.targets.refresh(await this.store.read()); this.nextAttempt = 0; this.engine.phase = 'pending'; this.onChange(); return result;
+      }
+      case 'model-apply': {
+        const result = await this.store.exclusive(() => this.targets.applyModel(input.id, input.fingerprint)); this.onChange(); return result;
       }
       case 'configure': {
         await this.store.exclusive(async () => {

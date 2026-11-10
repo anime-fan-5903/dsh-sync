@@ -797,14 +797,14 @@ function visibleNodes(node) {
   return [node, ...node.children.flat(Infinity).flatMap(visibleNodes)];
 }
 
-test('five stable tabs expose one panel and matching accessible relationships', async () => {
+test('six stable tabs expose one panel and matching accessible relationships', async () => {
   const app = harness(); await app.mount();
-  assert.deepEqual(tabNodes(app).map(tab => tab.children[0]), [english.tabOverview, english.tabAssets, english.tabSecurity, english.tabConflicts, english.tabBackups]);
+  assert.deepEqual(tabNodes(app).map(tab => tab.children[0]), [english.tabOverview, english.tabTargets, english.tabAssets, english.tabSecurity, english.tabConflicts, english.tabBackups]);
   const requests = app.calls.length;
-  for (const id of ['overview', 'assets', 'security', 'conflicts', 'backups']) {
+  for (const id of ['overview', 'targets', 'assets', 'security', 'conflicts', 'backups']) {
     switchTab(app, id);
     const tabs = tabNodes(app), panels = panelNodes(app);
-    assert.equal(tabs.length, 5); assert.equal(panels.length, 5);
+    assert.equal(tabs.length, 6); assert.equal(panels.length, 6);
     const selected = tabs.filter(tab => tab.props['aria-selected']); assert.equal(selected.length, 1);
     const shown = panels.filter(panel => !panel.props.hidden); assert.equal(shown.length, 1);
     assert.equal(selected[0].props['aria-controls'], shown[0].props.id);
@@ -893,7 +893,7 @@ test('critical warnings stay visible and cross-tab attention links do not force 
   app.click(english.openAssets); app.commit(); assert.equal(app.states[state.activeTab], 'assets');
   switchTab(app, 'backups'); assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.restoreConfirm)));
   app.getReplies.push(app.success(base)); await app.events.get('focus')(); await flush(); app.commit();
-  assert.equal(app.states[state.activeTab], 'backups'); assert.equal(tabNodes(app).length, 5); app.unmount();
+  assert.equal(app.states[state.activeTab], 'backups'); assert.equal(tabNodes(app).length, 6); app.unmount();
 });
 
 test('recovery and destructive confirmation dialogs suppress help without changing the selected tab', async () => {
@@ -908,4 +908,31 @@ test('recovery and destructive confirmation dialogs suppress help without changi
   const modal = flatten(app.render()).find(node => node.type === 'dialog');
   assert.ok(flatten(modal).some(node => node.children.includes(english.recoveryWarning)));
   assert.equal(app.button(english.recoveryConfirm).props.disabled, true); app.unmount();
+});
+
+test('targets expose safe defaults and require local risk acknowledgement before enabling models', async () => {
+  const app = harness(); await app.mount(); switchTab(app, 'targets');
+  const labels = visibleNodes(app.render()).filter(node => node.type === 'label');
+  const option = text => flatten(labels.find(node => node.children.includes(text))).find(node => node.type === 'input');
+  for (const key of ['targetPrompts', 'targetSkills', 'targetSettings']) assert.equal(option(english[key]).props.checked, true);
+  assert.equal(option(english.targetModels).props.checked, false); assert.equal(option(english.targetPlugins).props.checked, false);
+  const before = app.calls.length; option(english.targetModels).props.onChange({ target: { checked: true } }); app.commit();
+  assert.equal(app.calls.length, before); assert.equal(app.trackingDialog.open, true);
+  app.click(english.cancel); app.commit(); assert.equal(app.calls.length, before);
+  option(english.targetModels).props.onChange({ target: { checked: true } }); app.commit();
+  app.click(english.targetsConfirm); await flush();
+  const post = app.calls.find(call => call.options.method === 'POST');
+  assert.deepEqual(JSON.parse(post.options.body), { action: 'targets-configure', enabled: { 'model-config': true }, confirmRisk: true, confirmScope: true });
+  app.unmount();
+});
+
+test('incoming model settings are reviewable and application binds the exact displayed fingerprint', async () => {
+  const app = harness(); await app.mount();
+  app.states[state.status] = { ...base, targets: { enabled: { 'model-config': true }, pendingModels: [{ id: 'model-fixture', name: 'llm-deepseek', fingerprint: 'fixture-hash', values: { baseURL: 'https://fixture.example/api' } }] } };
+  switchTab(app, 'targets');
+  assert.ok(visibleNodes(app.render()).some(node => node.children.includes(english.modelsApplyWarning)));
+  app.click(english.modelsApply); await flush();
+  const post = app.calls.find(call => call.options.method === 'POST');
+  assert.deepEqual(JSON.parse(post.options.body), { action: 'model-apply', id: 'model-fixture', fingerprint: 'fixture-hash' });
+  app.unmount();
 });

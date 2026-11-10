@@ -32,11 +32,12 @@ function equalFileInfo(left, right) {
   return left.dev === right.dev && left.ino === right.ino && left.size === right.size && left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs;
 }
 function assetName(origin, type) { return type === 'skill' ? origin.path.split('/')[1] : `.${origin.root}/${origin.path}`; }
-function optionsOf({ includeAgents = false, excluded = [] } = {}) {
-  invariant(typeof includeAgents === 'boolean' && Array.isArray(excluded) && excluded.every(key => typeof key === 'string'), 'Invalid native synchronization options.');
-  return { includeAgents, excluded: new Set(excluded) };
+function optionsOf({ includeAgents = false, excluded = [], types = ['prompt', 'skill'] } = {}) {
+  invariant(typeof includeAgents === 'boolean' && Array.isArray(excluded) && excluded.every(key => typeof key === 'string') &&
+    Array.isArray(types) && types.every(type => ['prompt', 'skill'].includes(type)), 'Invalid native synchronization options.');
+  return { includeAgents, excluded: new Set(excluded), types: new Set(types) };
 }
-function scoped(origin, options) { return (origin.root === 'dsh' || options.includeAgents) && !options.excluded.has(nativeOriginKey(origin)); }
+function scoped(asset, options) { return options.types.has(asset.type) && (asset.origin.root === 'dsh' || options.includeAgents) && !options.excluded.has(nativeOriginKey(asset.origin)); }
 function resourcePaths(asset) {
   if (asset.type === 'prompt') {
     safeRelative(asset.origin.path);
@@ -195,6 +196,7 @@ export class NativeFiles {
   }
   async scan(input = {}) {
     const options = optionsOf(input); const result = { assets: [], entries: [], issues: [] };
+    if (!options.types.size) return result;
     const context = { visited: 0, bytes: 2 };
     const issue = (error, origin) => result.issues.push(cleanIssue(error, origin));
     const add = asset => {
@@ -276,6 +278,7 @@ export class NativeFiles {
         if (!root.info.isDirectory()) throw failure('native-invalid-directory', 'A configured native root is not a directory.');
         const names = await readdir(root.absolute); const canonicalNames = new Set();
         for (const expected of ROOT_NAMES) {
+          if (!options.types.has(expected === 'skills' ? 'skill' : 'prompt')) continue;
           const matches = names.filter(value => value.toLowerCase() === expected.toLowerCase());
           if (matches.length > 1 || matches.some(value => value !== expected)) {
             issue(failure('native-case-collision', 'A native discovery path differs only by letter case.'), { root: name, path: expected });
@@ -317,7 +320,7 @@ export class NativeFiles {
       invariant(asset.name === assetName(asset.origin, asset.type), 'A native asset has an inconsistent name.', 'native-invalid-name');
       if (asset.type === 'skill') invariant(asset.description === `Native Skill: ${asset.name}`, 'A native Skill has inconsistent metadata.', 'native-invalid-name');
       const key = nativeOriginKey(asset.origin); invariant(!seen.has(key), 'Duplicate native origin.', 'native-duplicate'); seen.add(key);
-      if (scoped(asset.origin, options)) result.set(key, asset);
+      if (scoped(asset, options)) result.set(key, asset);
     }
     assertNoPathCollisions(result); return result;
   }
@@ -428,8 +431,8 @@ export class NativeFiles {
     };
     await walk();
   }
-  async apply({ before, after, includeAgents = false, excluded = [] }) {
-    const options = optionsOf({ includeAgents, excluded }); const input = { includeAgents, excluded };
+  async apply({ before, after, includeAgents = false, excluded = [], types = ['prompt', 'skill'] }) {
+    const input = { includeAgents, excluded, types }; const options = optionsOf(input);
     const previous = this.selected(before, options); const desired = this.selected(after, options);
     await this.assertSnapshot(previous, input);
     const changes = [...new Set([...previous.keys(), ...desired.keys()])].sort().filter(key => hash(previous.get(key)) !== hash(desired.get(key)));

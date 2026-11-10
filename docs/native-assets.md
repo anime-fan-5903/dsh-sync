@@ -15,13 +15,21 @@ The normal root is the configured DSH home (`DSH_HOME`, otherwise `~/.dsh`). The
 
 The tracking list shows prompt paths individually and a collapsed entry per Skill name, with its root and file count rather than an expanded resource listing. Discovery refreshes approximately every five seconds while the Host runs. Source edits schedule a debounced synchronization when automatic sync is enabled, the account is authorized, and the vault is unlocked. Refreshing discovery does not itself publish or replace files.
 
+## Independent sync targets
+
+**Sync targets** controls prompts and Skills independently. Both default to enabled, alongside DSH options; model configuration defaults to disabled. Plugins are disabled and unavailable in v0.3.0. The device-local `targets.json` stores category policy separately from the `.agents` root grant and per-item exclusions in `tracking.json`. None of these grants is synchronized.
+
+Disabling prompts or Skills stops reading that category's file contents and applying incoming changes; existing cloud assets pass through without local participation. It does not delete local or cloud files. Re-enabling resets the category's baseline so differing copies require a fresh comparison rather than an overwrite based on stale history. The separate `.agents` grant is still required for either category under that root. A previously confirmed cloud-deletion request remains separately authorized.
+
+DSH options and model configuration are not discovered by walking profile files. They use a fixed whitelist of user overrides through the Host settings service, with namespace-level conflict units and revision-checked field mutations. Existing vault upgrades require scope confirmation before either configuration category participates. All incoming model changes require separate fingerprint-bound local confirmation before application. See the [configuration protocol](protocol.md#portable-configuration) and [configuration security rules](security.md#portable-configuration-and-local-consent).
+
 ## Bidirectional files, not imported copies
 
 Native assets retain their original filesystem locations. An incoming prompt is written to the corresponding root-relative file on the other device; an incoming Skill is materialized into its original relative Skill directory. Logical paths, not machine-specific absolute paths, identify targets. Content is not rewritten to replace usernames or absolute paths embedded in instructions.
 
 Native asset IDs are deterministic UUIDv8 values derived from the root namespace and logical path. An identically located asset is therefore the same conflict unit on both devices. A file rename changes the native identity: the old path is a deletion and the new path a new asset. Exclusions are path-specific, so renaming an excluded item can create a newly tracked item.
 
-If an existing local file differs from a cloud file when joining for the first time, both sides require a conflict choice. The single **Sync assets** list has no internal editor. **View** resolves the original prompt or Skill marker without reading its content, then uses DSH's Session native-application opener to launch the Host's registered default file handler. A present excluded or locked item can still be opened locally; disabled roots and linked or missing paths cannot. A deployment without native opening shows an explicit error, not an internal-viewer fallback. Backup restoration writes the original location and requires that the item and root are enabled.
+If an existing local file differs from a cloud file when joining for the first time, both sides require a conflict choice. The single **Sync assets** list has no internal editor. **View** resolves the original prompt or Skill marker without reading its content, then uses DSH's Session native-application opener to launch the Host's registered default file handler. A present excluded or locked item can still be opened locally; disabled categories or roots and linked or missing paths cannot. A deployment without native opening shows an explicit error, not an internal-viewer fallback. Backup restoration writes the original location and requires that the item and root are enabled.
 
 Native Skills are loaded through DSH's normal filesystem sources. Changes to instructions or Skill discovery take effect according to DSH's normal loading behavior; an already-running conversation does not have its past context rewritten.
 

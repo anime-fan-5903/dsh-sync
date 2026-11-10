@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { SyncEngine } from '../src/engine.js';
 import { decodeEnvelope, unlockKeyring, wipe } from '../src/crypto.js';
 import { nativeId } from '../src/model.js';
+import { configAsset } from '../src/portable-config.js';
 class Store {
   constructor(){this.state={format:1,assets:[],base:{},backups:[],settings:{},vaultId:null,keyring:null,encrypted:false};this.queue=Promise.resolve();}
   read(){return Promise.resolve(structuredClone(this.state));}
@@ -23,6 +24,26 @@ const make=(backend)=>new SyncEngine({store:new Store(),backend});
 const prompt=(content)=>{const origin={root:'dsh',path:`prompts/${randomUUID()}.md`};return {id:nativeId(origin),origin,type:'prompt',name:`.dsh/${origin.path}`,content};};
 async function put(engine,asset){const state=await engine.store.read();state.assets=[...state.assets.filter(item=>item.id!==asset.id),asset];await engine.store.write(state);}
 async function pair(){const backend=new Backend();const a=make(backend);const b=make(backend);await a.initialize();await b.initialize();await b.synchronize();return {backend,a,b};}
+test('format 2 remains sticky through empty snapshots and encryption transitions', async () => {
+  const { a, backend } = await pair();
+  const config = configAsset('settings', 'ui-theme', { preference: 'dark' });
+  await put(a, config); await a.synchronize(); assert.equal(backend.remote.envelope.format, 2);
+  a.store.state.assets = []; await a.synchronize(); assert.equal(backend.remote.envelope.format, 2);
+  await a.enableEncryption('TEST-only-sticky-passphrase'); assert.equal(backend.remote.envelope.format, 2);
+  await a.changePassphrase('TEST-only-rewrapped-passphrase'); assert.equal(backend.remote.envelope.format, 2);
+});
+
+test('restoring configuration creates a visible typed undo backup', async () => {
+  const { a, backend } = await pair();
+  const config = configAsset('settings', 'ui-theme', { preference: 'dark' });
+  await put(a, config); await a.synchronize();
+  const state = await a.store.read(); await a.backupDiscarded(state, [{ side: 'local', asset: config }]);
+  await put(a, configAsset('settings', 'ui-theme', { preference: 'light' }));
+  await a.restoreBackup((await a.store.read()).backups[0].id);
+  const undo = (await a.store.read()).backups[0]; assert.equal(undo.type, 'settings'); assert.equal(undo.name, 'ui-theme');
+  assert.equal(decodeEnvelope(undo.envelope)[0].values.preference, 'light');
+});
+
 test('two devices synchronize independent asset updates',async()=>{
   const {a,b}=await pair();const p=prompt('one');await put(a,p);await a.synchronize();await b.synchronize();
   assert.deepEqual((await b.store.read()).assets,[p]);
