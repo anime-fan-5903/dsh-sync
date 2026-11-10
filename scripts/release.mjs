@@ -42,6 +42,18 @@ export async function planPush(event, { eventName, ref, sha }, manifestAt) {
   return { ...releasePlan(previous.version, current.version), sha };
 }
 
+export async function planDispatch(event, { eventName, ref, sha }, manifestAt) {
+  assert.equal(eventName, 'workflow_dispatch', 'Expected an explicit manual release request.');
+  assert.equal(ref, 'refs/heads/main', 'Manual releases only run on main.');
+  assert.ok(typeof sha === 'string' && shaPattern.test(sha) && !/^0+$/.test(sha), 'A full source commit SHA is required.');
+  const current = await manifestAt(sha);
+  assert.equal(current.name, 'dsh-sync', 'Unexpected package name.');
+  // Reuse the stable-version policy without pretending a manual request is a push.
+  const plan = releasePlan(current.version, current.version);
+  assert.equal(event.inputs?.version, current.version, 'The requested version must exactly match package.json at the selected main commit.');
+  return { ...plan, publish: true, sha };
+}
+
 export function validatePack(pack, version) {
   assert.equal(pack.name, 'dsh-sync', 'Unexpected packed package name.');
   assert.equal(pack.version, version, 'Packed version does not match the source version.');
@@ -217,7 +229,8 @@ export async function publishRelease({ api, version, sha, files }) {
 async function main() {
   const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
-  const plan = await planPush(event, {
+  const planner = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' ? planDispatch : planPush;
+  const plan = await planner(event, {
     eventName: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF, sha: process.env.GITHUB_SHA,
   }, sha => JSON.parse(git(['show', `${sha}:package.json`])));
   assert.equal(git(['rev-parse', 'HEAD']), plan.sha, 'Checkout does not match the release source.');

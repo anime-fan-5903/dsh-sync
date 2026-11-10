@@ -5,6 +5,12 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Stable version in package.json to publish from main'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,6 +18,7 @@ permissions:
 jobs:
   check:
     name: Check (${{ matrix.os }}, Node 22)
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -34,8 +41,8 @@ jobs:
         run: node scripts/check.mjs
 
   release:
-    name: Publish changed version
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Publish selected version
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 15

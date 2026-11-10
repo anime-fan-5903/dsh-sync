@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { GitHubApi, planPush, publishRelease, releasePlan, validatePack } from '../scripts/release.mjs';
+import { GitHubApi, planDispatch, planPush, publishRelease, releasePlan, validatePack } from '../scripts/release.mjs';
 
 const before = 'a'.repeat(40);
 const sha = 'b'.repeat(40);
@@ -94,6 +94,27 @@ test('push planning compares exact before and after tips, including multi-commit
     await assert.rejects(planPush(event, { ...context, ...change }, manifestAt));
   }
   await assert.rejects(planPush(event, context, () => ({ name: 'other', version })));
+});
+
+test('manual recovery requires main and an exact explicit stable source version', async () => {
+  const event = { inputs: { version } };
+  const context = { eventName: 'workflow_dispatch', ref: 'refs/heads/main', sha };
+  const reads = [];
+  const manifestAt = commit => {
+    reads.push(commit);
+    return { name: 'dsh-sync', version };
+  };
+  assert.deepEqual(await planDispatch(event, context, manifestAt), { publish: true, tag, version, sha });
+  assert.deepEqual(reads, [sha]);
+  for (const change of [{ eventName: 'push' }, { eventName: 'pull_request' }, { ref: 'refs/heads/feature' }, { ref: `refs/tags/${tag}` }, { sha: '0'.repeat(40) }, { sha: undefined }, { sha: 'HEAD' }]) {
+    await assert.rejects(planDispatch(event, { ...context, ...change }, manifestAt));
+  }
+  for (const requested of [undefined, '', '0.3.2', 'v0.3.3', '0.3.3-rc.1', '0.3.3\n', '0.3.3; echo fixture']) {
+    await assert.rejects(planDispatch({ inputs: { version: requested } }, context, manifestAt));
+  }
+  await assert.rejects(planDispatch({}, context, manifestAt));
+  await assert.rejects(planDispatch(event, context, () => ({ name: 'other', version })));
+  await assert.rejects(planDispatch({ inputs: { version: '0.3.3-rc.1' } }, context, () => ({ name: 'dsh-sync', version: '0.3.3-rc.1' })));
 });
 
 test('publication creates the exact tag, uploads to a draft, and publishes last', async () => {
@@ -243,12 +264,22 @@ test('workflow keeps PRs read-only, pins approved actions and gates publication 
     context.skip('Repository-only workflow is not included in the npm distribution.');
     return;
   }
+  const lf = workflow.replace(/\r\n/g, '\n');
+  for (const [name, source] of [['LF', lf], ['CRLF', lf.replace(/\n/g, '\r\n')]]) {
+    await context.test(`${name} checkout`, () => assertWorkflowContract(source));
+  }
+});
+
+function assertWorkflowContract(source) {
+  // Git may check out YAML with CRLF on Windows; line endings are not policy.
+  const workflow = source.replace(/\r\n/g, '\n');
   assert.match(workflow, /pull_request:\n\s+branches: \[main\]/);
   assert.match(workflow, /push:\n\s+branches: \[main\]/);
   assert.match(workflow, /os: \[ubuntu-latest, windows-latest\]/);
   assert.match(workflow, /node-version: '22'/);
   assert.match(workflow, /permissions:\n  contents: read/);
-  assert.match(workflow, /if: github.event_name == 'push' && github.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /if: github.event_name != 'workflow_dispatch' \|\| github.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /if: \(github.event_name == 'push' \|\| github.event_name == 'workflow_dispatch'\) && github.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /needs: check/);
   assert.match(workflow, /permissions:\n      contents: write/);
   assert.match(workflow, /cancel-in-progress: false/);
@@ -259,5 +290,7 @@ test('workflow keeps PRs read-only, pins approved actions and gates publication 
   assert.equal((workflow.match(/persist-credentials: false/g) ?? []).length, 2);
   assert.ok(!workflow.includes('pull_request_target'));
   assert.ok(!workflow.includes('npm install'));
-  assert.ok(!workflow.includes('workflow_dispatch'));
-});
+  assert.match(workflow, /workflow_dispatch:\n    inputs:\n      version:\n        description: [^\n]+\n        required: true\n        type: string/);
+  assert.ok(!workflow.includes('${{ inputs.'));
+  assert.ok(!workflow.includes('${{ github.event.inputs.'));
+}
