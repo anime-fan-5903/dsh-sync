@@ -53,8 +53,8 @@ test('same-name Skills can exist in separate native roots', () => {
   assert.throws(() => validateAsset({ ...missingOrigin, id: randomUUID() }), { code: 'invalid-data' });
 });
 
-test('only native prompt and Skill records are accepted', () => {
+test('native assets require origins and malformed plugin declarations are rejected', () => {
   const { origin, ...missingOrigin } = nativePrompt('dsh', 'AGENTS.md');
   assert.throws(() => validateAsset({ ...missingOrigin, id: randomUUID() }), { code: 'invalid-data' });
-  assert.throws(() => validateAsset({ id: randomUUID(), type: 'plugins', name: 'Unsupported declaration', packages: [] }), /Unsupported asset type/);
+  assert.throws(() => validateAsset({ id: randomUUID(), type: 'plugins', name: 'Unsupported declaration', packages: [] }), { code: 'invalid-data' });
 });

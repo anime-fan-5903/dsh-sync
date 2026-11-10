@@ -6,21 +6,23 @@ import { SyncEngine } from './engine.js';
 import { MICROSOFT_CLIENT_ID } from './config.js';
 import { NativeTracking } from './tracking.js';
 import { SyncTargets } from './sync-targets.js';
+import { PluginSync } from './plugin-sync.js';
 import { DeviceTrust } from './device-trust.js';
 
 export const AGENT_ACTIONS = ['status','tracking-refresh','sync','backup-list','backup-restore'];
 export class Application {
-  constructor({ directory, roots, credentials, settings, deviceProtector, onChange = () => {} }) {
+  constructor({ directory, roots, credentials, settings, pluginManager, deviceProtector, onChange = () => {} }) {
     this.directory = directory; this.credentials = credentials; this.onChange = onChange;
     this.store = new LocalStore(directory); this.tracking = new NativeTracking({ directory, roots });
-    this.targets = new SyncTargets({ directory, native: this.tracking, settings });
+    this.plugins = new PluginSync({ directory, manager: pluginManager, onChange: () => this.onChange() });
+    this.targets = new SyncTargets({ directory, native: this.tracking, settings, plugins: this.plugins });
     this.deviceTrust = new DeviceTrust({ directory, ...(deviceProtector ? { protector: deviceProtector } : {}) });
     this.deviceError = null; this.auth = null; this.engine = null; this.timer = null; this.closed = false;
     this.nextDiscovery = 0; this.discovering = false;
     this.nextAttempt = 0; this.failures = 0; this.operations = Promise.resolve();
   }
   async start() {
-    await this.store.acquire(); await this.targets.start(await this.store.read()); await this.tracking.start(); await this.deviceTrust.start(); await this.build();
+    await this.store.acquire(); await this.targets.start(await this.store.read()); await this.plugins.start({ enabled: this.targets.enabled('plugins') }); await this.tracking.start(); await this.deviceTrust.start(); await this.build();
     await this.targets.refresh(await this.store.read());
     this.timer = setInterval(() => this.tick().catch(() => {}), 1000); this.timer.unref?.();
   }
@@ -47,14 +49,18 @@ export class Application {
   async dispose() {
     this.closed = true; clearInterval(this.timer);
     await this.operations; await this.store.queue;
-    this.auth?.dispose(); this.engine?.lock(); await this.store.release();
+    await this.plugins.dispose?.(); this.auth?.dispose(); this.engine?.lock(); await this.store.release();
   }
   async status() {
     const state = await this.store.read(); const trust = this.deviceTrust.status();
     return { ...await this.engine.status(), signedIn: await this.auth.signedIn(), auth: this.auth.status(),
       backups: state.backups.filter(backup => backup.origin || backup.type).map(({id,createdAt,side,origin,type,name}) => ({id,createdAt,side,origin,type,name})),
-      dataDirectory: this.directory, tracking: this.tracking.status(), targets: this.targets.status(), localAtRest: 'plaintext',
+      dataDirectory: this.directory, tracking: this.tracking.status(), targets: { ...this.targets.status(), plugins: this.pluginStatus() }, localAtRest: 'plaintext',
       deviceTrust: { ...trust, ...(this.deviceError ? { error: this.deviceError } : {}) } };
+  }
+  pluginStatus() {
+    const enabled = this.targets.enabled('plugins');
+    return enabled ? { enabled, ...this.plugins.status() } : { enabled, available: typeof this.plugins.manager?.listBundles === 'function', pendingCount: 0, items: [], progress: null };
   }
   /** Return sidebar status without asset hashes, inventory details, or diagnostic messages. */
   async summary() {
@@ -67,7 +73,8 @@ export class Application {
       encrypted: state.encrypted, locked: state.encrypted && (!this.engine.key || this.engine.unlockedKeyring !== state.keyring?.id),
       lastSync: state.lastSync, settings: { enabled: state.settings.enabled }, conflictCount: this.engine.conflicts.length,
       tracking: { issueCount: this.tracking.inventory.issues.length },
-      deviceTrust: { error: errorCode(this.deviceError ?? this.deviceTrust.error) } };
+      deviceTrust: { error: errorCode(this.deviceError ?? this.deviceTrust.error) },
+      ...(this.targets.enabled('plugins') ? { plugins: this.plugins.summary() } : {}) };
   }
   async tick() {
     if (this.closed || this.running) return;
@@ -86,7 +93,7 @@ export class Application {
     finally { this.running = false; this.nextAttempt = Date.now() + Math.min(300000, state.settings.intervalSeconds * 1000 * 2 ** this.failures); }
   }
   operation(action, input = {}, caller = 'user') {
-    if (action === 'status') return this.perform(action, input, caller);
+    if (action === 'status' || action === 'plugins-status') return this.perform(action, input, caller);
     const next = this.operations.then(() => this.perform(action, input, caller));
     this.operations = next.catch(() => {}); return next;
   }
@@ -140,6 +147,13 @@ export class Application {
           else result = await this.tracking.configure(state,input.agentsEnabled,input.confirmOverwrite);
           await this.store.write(state); this.nextAttempt = 0; this.engine.phase = 'pending'; this.onChange(); return result;
         });
+      }
+      case 'plugins-status': return this.pluginStatus();
+      case 'plugins-install':
+      case 'plugins-ignore': {
+        invariant(this.targets.enabled('plugins'), 'Enable plugin synchronization on this device first.', 'target-disabled');
+        const result = action === 'plugins-install' ? await this.plugins.install(input.choices) : await this.plugins.ignore(input.id, input.fingerprint);
+        this.onChange(); return result;
       }
       case 'targets-configure': {
         const result = await this.store.exclusive(async () => {

@@ -10,11 +10,12 @@ Sign in with your Microsoft account to synchronize native DSH instructions, user
 
 - Automatic synchronization of global instructions, prompt/fragment text files, and user Skills into their original paths
 - One asset list, device-local exclusions, explicit conflict choices, and up to ten discarded-version backups
+- Optional registry plugin manifests with sidebar reminders and locally confirmed restoration
 - Optional AES-256-GCM encryption with a passphrase and a separate recovery key
 - Windows protected automatic unlock; manual unlock on other platforms
 - Settings that follow DSH's active language: English, Simplified Chinese, or Japanese
 
-Conversations, credentials, plugin installations, and arbitrary project/profile files are not synchronized. Configuration synchronization is limited to the reviewed fields below. The additional `.agents` root is off by default. There is no built-in editor, text auto-merge, or team-sharing workflow.
+Conversations, credentials, installed package files, and arbitrary project/profile files are not synchronized. Configuration synchronization is limited to the reviewed fields below; optional plugin manifests support locally confirmed restoration. The additional `.agents` root is off by default. There is no built-in editor, text auto-merge, or team-sharing workflow.
 
 ## Get started
 
@@ -32,7 +33,7 @@ Six horizontal tabs organize the controls: **Overview**, **Sync targets**, **Syn
 
 ### Sync targets
 
-Prompts, Skills, and DSH options are enabled by default; model configuration and plugins are off. Plugin restoration is unavailable in v0.3.0, and its checkbox is disabled. The separate `.agents` opt-in remains off by default. Review both **Sync targets** and **Sync assets** before initializing or joining a vault.
+Prompts, Skills, and DSH options are enabled by default; model configuration and plugins are off. Plugin manifest synchronization requires explicit opt-in and risk acknowledgement on each device; installation remains a separate local confirmation. The separate `.agents` opt-in remains off by default. Review both **Sync targets** and **Sync assets** before initializing or joining a vault.
 
 Target choices and confirmations are device-local policy in `targets.json`, never cloud assets. Upgrading an existing vault requires scope confirmation before DSH options or model configuration participate. Turning a category off preserves local and cloud copies; re-enabling starts from a fresh baseline and checks differences again. This differs from an explicitly confirmed per-file exclusion, which removes the active cloud copy.
 
@@ -50,7 +51,15 @@ A live status entry above the sidebar's **More** / account launcher checks statu
 
 Periodic difference checks compare local files and recheck OneDrive marker, head, and snapshot metadata without changing the visible status or showing a syncing spinner for unchanged snapshots. Downloading a new revision, publishing changes, or applying cloud changes locally reports syncing; errors, conflicts, and locked vaults still surface.
 
-Clicking opens a plugin-owned dialog with the same full sync controls as **Settings → DSH Sync**; opening it does not trigger synchronization. The dialog is separate because DSH `0.2.2-rc.1` has no public navigation API for opening a specific settings section.
+When plugin differences are pending, the lower-left status badge opens a concise plugin restoration panel directly. Otherwise it opens the full sync controls available in **Settings → DSH Sync**. Opening either view does not install anything. The plugin-owned dialog is separate because DSH `0.2.2-rc.1` has no public navigation API for opening a specific settings section.
+
+### Plugin restoration
+
+After enabling **Plugins** in **Sync targets** on participating devices, eligible profile-installed registry bundles are discovered and exported automatically, including newly installed packages. Each manifest carries a package name, exact version, and desired enabled state. DSH Sync itself, shipped/core bundles, and local-path, Git, tarball, or alias sources are excluded. Package files, registry URLs, credentials, build-script grants, and compatibility exemptions are not transferred; restoration uses the destination's configured registry.
+
+Background comparison creates the pending list without a manual plan or a settings-page visit. Installable missing packages and exact-version activation changes are selected by default. Review names, versions, sources, and enabled states, then choose **Install and apply selected plugin states** for one explicit local confirmation. It authorizes only the displayed desired and local-state fingerprints; changed choices are rejected. Existing version/source mismatches require manual handling in DSH's plugin manager: there is no automatic upgrade, downgrade, or uninstall.
+
+**Later** closes the panel but keeps the badge. Ignoring an item affects only this device and that fingerprint; a new version or local-state change can prompt again. Missing local packages remain in the desired list rather than being published as deletions. The panel reports progress, failures, script blocks, incompatibility, and restart requirements separately from cloud synchronization. Already permitted install scripts may run; new script permissions and compatibility exemptions require separate approval through DSH's plugin manager. Closing the panel does not cancel an already authorized installation.
 
 ## Safety and limits
 

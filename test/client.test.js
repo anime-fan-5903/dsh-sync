@@ -926,6 +926,26 @@ test('targets expose safe defaults and require local risk acknowledgement before
   app.unmount();
 });
 
+test('plugin target is selectable with local risk confirmation and mounts restoration only while visible', async () => {
+  const app = harness(); await app.mount(); switchTab(app, 'targets');
+  const label = visibleNodes(app.render()).find(node => node.type === 'label' && node.children.includes(english.targetPlugins));
+  const checkbox = flatten(label).find(node => node.type === 'input');
+  assert.equal(checkbox.props.disabled, false);
+  checkbox.props.onChange({ target: { checked: true } }); app.commit();
+  assert.equal(app.calls.filter(call => call.options.method === 'POST').length, 0);
+  app.click(english.targetsConfirm); await flush();
+  assert.deepEqual(JSON.parse(app.calls.find(call => call.options.method === 'POST').options.body), {
+    action: 'targets-configure', enabled: { plugins: true }, confirmRisk: true, confirmScope: true,
+  });
+  app.states[state.status] = { ...base, targets: { enabled: { plugins: true } } };
+  assert.ok(flatten(app.render()).some(node => node.type?.name === 'PluginRestore'));
+  switchTab(app, 'overview'); assert.ok(!flatten(app.render()).some(node => node.type?.name === 'PluginRestore'));
+  switchTab(app, 'targets'); app.states[state.status].targets.enabled.plugins = false;
+  assert.ok(!flatten(app.render()).some(node => node.type?.name === 'PluginRestore'));
+  assert.ok(!english.targetsModelsHelp.includes('not available in this release'));
+  app.unmount();
+});
+
 test('incoming model settings are reviewable and application binds the exact displayed fingerprint', async () => {
   const app = harness(); await app.mount();
   app.states[state.status] = { ...base, targets: { enabled: { 'model-config': true }, pendingModels: [{ id: 'model-fixture', name: 'llm-deepseek', fingerprint: 'fixture-hash', values: { baseURL: 'https://fixture.example/api' } }] } };

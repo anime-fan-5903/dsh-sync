@@ -258,6 +258,47 @@ test('status labels and tooltips follow the active DSH locale without restarting
   assert.equal(app.calls.length, calls); app.unmount();
 });
 
+test('pending plugins open the concise panel directly and detailed management retains the settings route', async () => {
+  const app = harness(); app.replies.push(success({ ...base, plugins: { pendingCount: 2 } })); await app.mount();
+  assert.equal(statusText(app), english.pluginsPending);
+  assert.ok(app.button(false).props['aria-label'].includes('2'));
+  assert.ok(flatten(app.render(false)).some(node => node.props.className === 'dsh-sync-sidebar-badge' && node.children[0] === 2));
+  app.button().props.onClick(); let tree = app.commit();
+  const dialog = flatten(tree).find(node => node.type === 'dialog');
+  const child = dialog.children.find(node => typeof node?.type === 'function');
+  assert.equal(child.type.name, 'PluginRestore'); assert.notEqual(child.type, app.slots.get('settings.section').Component);
+  assert.equal(app.calls.filter(call => call.options.method === 'POST').length, 0);
+  child.props.onManage(); tree = app.commit();
+  const settings = flatten(tree).find(node => node.type === app.slots.get('settings.section').Component);
+  assert.equal(settings.props.initialTab, 'targets');
+  app.unmount(); app.dispose(); assert.equal(app.slots.size, 0);
+});
+
+for (const [override, label] of [[{ conflictCount: 1 }, 'phaseConflict'], [{ locked: true }, 'phaseLocked'], [{ phase: 'error', error: { code: 'EACCES' } }, 'sidebarError']]) {
+  test(`plugin badge and direct restoration remain available below ${label}`, async () => {
+    const app = harness(); const value = { ...base, ...override, plugins: { pendingCount: 3, installing: true } };
+    app.replies.push(success(value)); await app.mount();
+    assert.equal(statusText(app), english[label]);
+    assert.ok(flatten(app.render()).some(node => node.props.className === 'dsh-sync-sidebar-badge' && node.children[0] === 3));
+    app.button().props.onClick(); const tree = app.commit();
+    const child = flatten(tree).find(node => typeof node.type === 'function');
+    assert.equal(child.type.name, 'PluginRestore');
+    child.props.onClose(); app.commit(); assert.equal(app.dialog.open, false);
+    app.unmount();
+  });
+}
+
+test('plugin installation progress is not reported as synchronized success', async () => {
+  const app = harness(); app.replies.push(success({ ...base, plugins: { pendingCount: 0, installing: true, progress: { current: 1, total: 2, name: 'fixture' } } }));
+  await app.mount(); assert.equal(statusText(app), english.pluginsInstalling);
+  app.button().props.onClick(); assert.ok(flatten(app.commit()).some(node => node.type?.name === 'PluginRestore')); app.unmount();
+});
+
+test('malformed optional plugin summary fails closed', async () => {
+  const app = harness(); app.replies.push(success({ ...base, plugins: { pendingCount: -1 } }));
+  await app.mount(); assert.equal(statusText(app), english.sidebarUnavailable); app.unmount();
+});
+
 test('sidebar styles honor reduced motion and native dialog layering without absolute sidebar anchoring', () => {
   assert.match(source, /prefers-reduced-motion:reduce/);
   assert.match(source, /\.dsh-sync-sidebar-dialog::backdrop/);

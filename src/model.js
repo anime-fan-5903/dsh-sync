@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { validateConfig } from './portable-config.js';
+import { validatePlugin } from './plugin-sync.js';
 
 export const MAX_BYTES = 24 * 1024 * 1024;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -47,6 +48,7 @@ export function nativeId(origin) {
 }
 export function validateAsset(asset) {
   invariant(asset && UUID.test(asset.id), 'Invalid asset ID.');
+  if (asset.type === 'plugins') { validatePlugin(asset); return asset; }
   if (['settings', 'model-config'].includes(asset.type)) { validateConfig(asset); invariant(Buffer.byteLength(canonical(asset)) <= MAX_BYTES, 'Asset is too large.'); return asset; }
   invariant(['prompt', 'skill'].includes(asset.type), 'Unsupported asset type.');
   validateOrigin(asset.origin, asset.type);
@@ -81,7 +83,7 @@ export function validateAssets(assets) {
   for (const asset of assets) {
     validateAsset(asset);
     invariant(!ids.has(asset.id), 'Duplicate asset ID.'); ids.add(asset.id);
-    const target = asset.origin ? nativeOriginKey(asset.origin).toLowerCase() : `${asset.type}:${asset.namespace}`.toLowerCase();
+    const target = asset.origin ? nativeOriginKey(asset.origin).toLowerCase() : `${asset.type}:${asset.namespace ?? asset.name}`.toLowerCase();
     invariant(!targets.has(target), 'Case-insensitive native target collision.'); targets.add(target);
     if (asset.type === 'skill') {
       const skillKey = `${asset.origin.root}:${asset.name}`;

@@ -18,7 +18,7 @@ Trusted-device automatic unlock uses a separate operating-system-protected maste
 
 The application is a native public client using authorization code with PKCE, one-use state, and a loopback callback. The client ID is public. No client secret is distributed. Root-directory access requires delegated `Files.ReadWrite`; this permission is broader than the dedicated folder. The application limits its own operations but cannot change the scope Microsoft grants.
 
-Login, unlock, device-trust preferences, encryption changes, sync-target scope and risk acknowledgements, model-change application, native exclusions, and additional-root participation require user actions in the plugin UI. Agent tools can inspect permitted tracking/status metadata and perform supported synchronization and backup operations, but cannot approve those grants or bypass their confirmations.
+Login, unlock, device-trust preferences, encryption changes, sync-target scope and risk acknowledgements, model-change application, plugin restoration and ignores, native exclusions, and additional-root participation require user actions in the plugin UI. Agent tools can inspect permitted tracking/status metadata and perform supported synchronization and backup operations, but cannot approve those grants or bypass their confirmations.
 
 ## Trusted-device automatic unlock
 
@@ -66,7 +66,13 @@ Configuration conflicts are per namespace. Field-level mutations with revision c
 
 ## Asset and installation safety
 
-Plugin restoration is unavailable in v0.3.0; the Plugins target remains off with a disabled checkbox. No synchronized asset authorizes automatic plugin installation, package build scripts, compatibility exemptions, or local security-setting changes. Review instructions and Skill scripts before using or invoking them.
+Plugin manifest synchronization is off by default and requires explicit local opt-in and risk acknowledgement. An enabled target exports eligible profile registry bundles as package names, exact versions, and enabled states, not installed files or arbitrary installation instructions. DSH Sync itself, shipped/core bundles, local paths, Git, tarball, and alias sources are excluded. Registry URLs and credentials are not transferred; restoration uses the destination's configured registry. A disabled target does not enumerate the plugin inventory.
+
+Neither downloading/applying manifests nor capturing local state installs or enables code. The sidebar's concise restoration panel is populated automatically from metadata-only plugin status, not from a full settings export. A single local confirmation authorizes only selected missing-package installations and exact-version enabled-state changes, bound to both desired and observed local-state fingerprints. Stale choices are refused. Existing version/source mismatches require manual handling; there is no automatic upgrade, downgrade, or uninstall.
+
+Installing and enabling Host plugins executes code with access to data available to the user's account. Already permitted install scripts may run. Sync does not transfer or grant build-script permissions, compatibility exemptions, or security-setting changes; blocked scripts and incompatible versions require separate action and approval in DSH's plugin manager. Encryption does not make a package trustworthy, and a package name/version is not a cryptographic publisher identity. No synchronized asset by itself authorizes execution.
+
+Desired manifests, local observations, ignored fingerprints, and sanitized operation results are plaintext in device-local `plugins.json`, outside cloud grants. Choosing Later keeps the reminder; ignoring an item applies only to its current desired/local fingerprint, so later changes can prompt again. Missing packages remain desired instead of being treated as deletions. Installation progress, failures, and restart requirements remain separate from cloud sync success. Closing the panel does not cancel an authorized installation, and reverting a manifest cannot undo code or scripts already executed. Review instructions and Skill scripts before using or invoking them.
 
 Resource paths reject traversal, nonportable components, and symbolic links. The plugin excludes common dependency, Git, and environment-file locations but cannot promise a generic secret scanner.
 

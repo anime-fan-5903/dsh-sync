@@ -69,6 +69,11 @@ test('Host UI and agent operations share state, enforce UI-only authority, and d
     assert.deepEqual(summary.auth, { pending: false, error: null });
     assert.deepEqual(summary.deviceTrust, { error: null });
     assert.equal(summary.conflictCount, 0); assert.equal(typeof summary.tracking.issueCount, 'number');
+    const pluginResponse = await fetch(`${bridge.url}?view=plugins`);
+    const pluginView = (await pluginResponse.json()).value;
+    assert.deepEqual(pluginView, { enabled: false, available: false, pendingCount: 0, items: [], progress: null });
+    assert.equal(pluginResponse.headers.get('cache-control'), 'no-store');
+    assert.equal(Object.hasOwn(pluginView, 'assets'), false);
     const unrecognizedView = await fetch(`${bridge.url}?view=unknown`);
     assert.ok(Array.isArray((await unrecognizedView.json()).value.assets), 'Unknown views preserve the existing full GET.');
     const failingSummary = t.mock.method(Application.prototype, 'summary', async () => { throw Object.assign(new Error('SECRET diagnostic with native path'), { code: 'SECRET' }); });

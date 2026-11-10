@@ -12,7 +12,7 @@ export const toolParameters = { type: 'object', properties: {
 export async function apply(ctx, config = {}) {
   const directory = path.resolve(config.dataDirectory ?? path.join(process.env.DSH_PROFILE_DIR ?? process.env.DSH_HOME ?? path.join(os.homedir(), '.dsh'), 'data', 'dsh-sync'));
   const roots = config.nativeRoots ?? { dsh: path.resolve(process.env.DSH_HOME ?? path.join(os.homedir(), '.dsh')), agents: path.join(os.homedir(), '.agents') };
-  const app = new Application({ directory, roots, credentials: ctx.credentials, settings: ctx.get?.('settings') });
+  const app = new Application({ directory, roots, credentials: ctx.credentials, settings: ctx.get?.('settings'), pluginManager: ctx.get?.('pluginManager') });
   try { await app.start(); } catch (error) { await app.dispose(); throw error; }
   ctx.effect(() => () => app.dispose());
   ctx.effect(() => ctx.connection.fetch.register({
@@ -21,7 +21,7 @@ export async function apply(ctx, config = {}) {
       const respond = (value, status = 200) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
       const summary = request.method === 'GET' && new URL(request.url).searchParams.get('view') === 'summary';
       try {
-        if (request.method === 'GET') return respond({ ok: true, value: summary ? await app.summary() : await app.operation('status') });
+        if (request.method === 'GET') return respond({ ok: true, value: summary ? await app.summary() : new URL(request.url).searchParams.get('view') === 'plugins' ? await app.operation('plugins-status') : await app.operation('status') });
         invariant(request.headers.get('content-type')?.split(';')[0] === 'application/json', 'Use application/json.', 'bad-content-type');
         invariant(Number(request.headers.get('content-length') ?? 0) <= MAX_BYTES * 2, 'Request is too large.');
         const reader = request.body?.getReader(); invariant(reader, 'A JSON request body is required.');
