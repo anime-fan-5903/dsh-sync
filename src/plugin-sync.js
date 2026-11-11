@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
+const SELF_PACKAGE = '@anime-fan-5903/dsh-sync';
 const NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 const NUMBER = '(?:0|[1-9][0-9]*)';
 const IDENTIFIER = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)';
@@ -19,7 +20,7 @@ function canonical(value) {
   return JSON.stringify(value);
 }
 function hash(value) { return createHash('sha256').update(canonical(value)).digest('hex'); }
-function validName(name) { return typeof name === 'string' && name.length <= 214 && NAME.test(name) && name !== 'dsh-sync' && name !== '@anime-fan-5903/dsh-sync'; }
+function validName(name) { return typeof name === 'string' && name.length <= 214 && NAME.test(name) && name !== 'dsh-sync'; }
 function validVersion(version) { return typeof version === 'string' && version.length <= 128 && VERSION.test(version); }
 
 export function pluginId(name) {
@@ -30,12 +31,14 @@ export function pluginId(name) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 export function pluginAsset(name, version, enabled, source = 'registry') {
+  check(name !== SELF_PACKAGE);
   return validatePlugin({ id: pluginId(name), type: 'plugins', name, version, enabled, source });
 }
 export function validatePlugin(asset) {
   check(object(asset) && Object.keys(asset).length === 6 && Object.keys(asset).every(key => ['id', 'type', 'name', 'version', 'enabled', 'source'].includes(key)));
   check(validName(asset.name) && typeof asset.enabled === 'boolean');
   check((asset.source === 'registry' && validVersion(asset.version)) || (asset.source === 'builtin' && asset.version === null));
+  check(asset.name !== SELF_PACKAGE || asset.source === 'registry');
   check(asset.type === 'plugins' && asset.id === pluginId(asset.name));
   return asset;
 }
@@ -99,6 +102,7 @@ export class PluginSync {
   async start({ enabled = true } = {}) {
     return this.exclusive(async () => {
       check(typeof enabled === 'boolean');
+      let changed = false;
       try {
         const text = await readFile(this.file, 'utf8'); check(Buffer.byteLength(text) <= 2 * 1024 * 1024);
         const state = JSON.parse(text);
@@ -108,11 +112,15 @@ export class PluginSync {
         for (const [id, value] of Object.entries(state.observed)) check(/^[a-f0-9-]{36}$/.test(id) && (value === null || DIGEST.test(value)));
         for (const [id, value] of Object.entries(state.ignored)) check(/^[a-f0-9-]{36}$/.test(id) && DIGEST.test(value));
         for (const [id, value] of Object.entries(state.results)) check(/^[a-f0-9-]{36}$/.test(id) && object(value) && Object.keys(value).length === 2 && DIGEST.test(value.fingerprint) && CODES.has(value.code));
+        for (const [id, asset] of Object.entries(state.desired)) {
+          if (asset.name !== SELF_PACKAGE) continue;
+          for (const key of ['desired', 'observed', 'ignored', 'results']) delete state[key][id];
+          changed = true;
+        }
         this.state = state;
       } catch (error) { if (error.code !== 'ENOENT') throw error; }
       if (enabled) await this.scan();
       else { this.available = false; this.local = new Map(); }
-      let changed = false;
       if (this.available) for (const [id, result] of Object.entries(this.state.results)) {
         const desired = this.state.desired[id]; const local = this.local.get(id);
         if (result.code === 'restart-required' && desired && local?.exportable && local.source === desired.source && local.version === desired.version && local.enabled === desired.enabled) {
@@ -131,7 +139,7 @@ export class PluginSync {
     if (!Array.isArray(rows)) { this.available = false; return; }
     this.available = true; this.local = new Map();
     for (const row of rows) {
-      if ((!row?.installed && row?.availability !== 'installation') || !validName(row.name)) continue;
+      if ((!row?.installed && row?.availability !== 'installation') || !validName(row.name) || row.name === SELF_PACKAGE) continue;
       const id = pluginId(row.name); const record = localRecord(row);
       if (this.local.has(id)) record.exportable = false;
       this.local.set(id, record);
@@ -184,7 +192,11 @@ export class PluginSync {
     return this.exclusive(async () => {
       check(Array.isArray(assets) && assets.length <= 1000);
       const desired = {};
-      for (const asset of assets) { validatePlugin(asset); check(!Object.hasOwn(desired, asset.id)); desired[asset.id] = structuredClone(asset); }
+      const ids = new Set();
+      for (const asset of assets) {
+        validatePlugin(asset); check(!ids.has(asset.id)); ids.add(asset.id);
+        if (asset.name !== SELF_PACKAGE) desired[asset.id] = structuredClone(asset);
+      }
       await this.scan();
       if (this.capturedHash !== null) {
         check(this.available, 'manager-unavailable');

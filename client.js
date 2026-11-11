@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-sync',
+  id: '@anime-fan-5903/dsh-sync',
   factory(require) {
     const React = require('react');
     const { Tooltip } = require('@deepseek-ai/dsh-client-ui-primitives');

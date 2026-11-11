@@ -226,6 +226,57 @@ export async function publishRelease({ api, version, sha, files }) {
   return { tag, status: 'published' };
 }
 
+const npmRegistry = 'https://registry.npmjs.org/';
+const npmPackage = '@anime-fan-5903/dsh-sync';
+
+function stableGreater(left, right) {
+  assert.ok(stablePattern.test(left) && stablePattern.test(right), 'Expected stable npm versions.');
+  const a = left.split('.').map(BigInt); const b = right.split('.').map(BigInt);
+  const index = a.findIndex((value, at) => value !== b[at]);
+  return index !== -1 && a[index] > b[index];
+}
+
+/** Publish the verified Release bytes with OIDC; retries never replace a version or downgrade latest. */
+export async function publishNpm({ version, archive, fetcher = fetch, run }) {
+  assert.ok(stablePattern.test(version), 'Invalid npm release version.');
+  assert.equal(archive.name, `anime-fan-5903-dsh-sync-${version}.tgz`, 'Unexpected npm archive.');
+  const integrity = `sha512-${createHash('sha512').update(archive.bytes).digest('base64')}`;
+  const endpoint = `${npmRegistry}${encodeURIComponent(npmPackage)}`;
+  const read = async () => {
+    const response = await fetcher(endpoint, { redirect: 'error', signal: AbortSignal.timeout(30000) });
+    if (response.status === 404) return { versions: {}, 'dist-tags': {} };
+    assert.ok(response.ok, `npm metadata request failed: HTTP ${response.status}`);
+    const data = await response.json();
+    assert.equal(data.name, npmPackage, 'Unexpected npm package identity.');
+    assert.ok(data.versions && typeof data.versions === 'object' && !Array.isArray(data.versions), 'Invalid npm versions.');
+    assert.ok(data['dist-tags'] && typeof data['dist-tags'] === 'object' && !Array.isArray(data['dist-tags']), 'Invalid npm tags.');
+    return data;
+  };
+  const verify = record => {
+    assert.equal(record?.name, npmPackage, 'npm version is missing or has a different name.');
+    assert.equal(record.version, version, 'npm version differs.');
+    assert.equal(record.dist?.integrity, integrity, 'npm version has different archive bytes; it will not be overwritten.');
+  };
+  const before = await read();
+  const latest = before['dist-tags'].latest;
+  if (latest !== undefined) assert.ok(stablePattern.test(latest), 'npm latest must be a stable version.');
+  let status = 'already-published';
+  if (before.versions[version]) verify(before.versions[version]);
+  else {
+    // An older workflow may finish later; keep a newer stable latest untouched.
+    const tag = latest && stableGreater(latest, version) ? `release-${version}` : 'latest';
+    await run(['publish', archive.path, '--access', 'public', '--tag', tag, '--ignore-scripts', '--provenance', `--registry=${npmRegistry}`]);
+    status = 'published';
+  }
+  const after = await read();
+  verify(after.versions[version]);
+  const current = after['dist-tags'].latest;
+  assert.ok(typeof current === 'string' && stablePattern.test(current), 'npm latest must be a stable version.');
+  // Trusted publishing authorizes publish, not arbitrary package administration.
+  assert.ok(current === version || stableGreater(current, version), 'npm latest is behind this release; a maintainer must repair the tag.');
+  return { version, status, latest: current };
+}
+
 async function main() {
   const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
@@ -234,13 +285,20 @@ async function main() {
     eventName: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF, sha: process.env.GITHUB_SHA,
   }, sha => JSON.parse(git(['show', `${sha}:package.json`])));
   assert.equal(git(['rev-parse', 'HEAD']), plan.sha, 'Checkout does not match the release source.');
-  let message = `Package version ${plan.version} is unchanged; no tag, Release or assets were modified.`;
+  let message = `Package version ${plan.version} is unchanged; no tag, Release, assets or npm versions were modified.`;
   if (plan.publish) {
     assert.equal(JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')).version, plan.version);
-    const files = await packRelease(plan.version, path.join(root, '_local', 'release'));
+    assert.ok(process.env.ACTIONS_ID_TOKEN_REQUEST_URL && process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN, 'npm publishing requires GitHub Actions id-token: write.');
+    assert.ok(!process.env.NODE_AUTH_TOKEN && !process.env.NPM_TOKEN, 'Use npm trusted publishing, not a stored npm token.');
+    const npmVersion = execFileSync('npm', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
+    assert.ok(npmVersion === '11.5.1' || stableGreater(npmVersion, '11.5.1'), 'npm trusted publishing requires npm >=11.5.1.');
+    const directory = path.join(root, '_local', 'release');
+    const files = await packRelease(plan.version, directory);
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GITHUB_TOKEN);
     const result = await publishRelease({ api, version: plan.version, sha: plan.sha, files });
-    message = `${result.tag}: ${result.status} (source ${plan.sha}).`;
+    const npmResult = await publishNpm({ version: plan.version, archive: { ...files[0], path: path.join(directory, files[0].name) },
+      run: args => { execFileSync('npm', args, { cwd: root, stdio: 'inherit' }); } });
+    message = `${result.tag}: GitHub ${result.status}; npm ${npmResult.status}, latest ${npmResult.latest} (source ${plan.sha}).`;
   }
   console.log(message);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);

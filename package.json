@@ -5,7 +5,7 @@
   "bugs": { "url": "https://github.com/anime-fan-5903/dsh-sync/issues" },
   "keywords": ["dsh", "deepseek-harness", "sync", "onedrive", "skills"],
   "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
-  "version": "0.3.3",
+  "version": "0.3.4",
   "license": "GPL-3.0-only",
   "description": "Synchronize DSH instructions, Skills, portable settings, model configuration and plugin declarations across devices with optional cloud encryption.",
   "type": "module",

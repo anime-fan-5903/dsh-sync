@@ -4,6 +4,23 @@ import vm from 'node:vm';
 import test from 'node:test';
 
 const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8');
+const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
+test('browser entry registers the package identity required by the boot graph', () => {
+  function loadEntry(body) {
+    const factories = new Map();
+    vm.runInNewContext(body, { window: { __ModuleLoader__: { load({ id, factory }) {
+      assert.ok(!factories.has(id), `Duplicate module registration: ${id}`);
+      factories.set(id, factory);
+    } } } });
+    assert.equal(typeof factories.get(manifest.name), 'function', `Missing boot module: ${manifest.name}`);
+    assert.equal(factories.size, 1);
+  }
+  loadEntry(source);
+  const legacy = source.replace(`id: '${manifest.name}'`, "id: 'dsh-sync'");
+  assert.notEqual(legacy, source);
+  assert.throws(() => loadEntry(legacy), /Missing boot module/);
+});
 const english = JSON.parse(readFileSync(new URL('../locale/en.json', import.meta.url), 'utf8'));
 const base = {
   initialized: true, phase: 'synced', encrypted: false, locked: false, signedIn: true,
@@ -112,7 +129,7 @@ function harness(initialLanguage = 'en', componentProps = {}) {
       return success(reply);
     },
   });
-  assert.equal(definition.id, 'dsh-sync');
+  assert.equal(definition.id, manifest.name);
   const plugin = definition.factory(name => {
     if (name === '@deepseek-ai/dsh-client-ui-primitives') return { Tooltip: 'tooltip' };
     assert.equal(name, 'react'); return React;

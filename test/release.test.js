@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { GitHubApi, planDispatch, planPush, publishRelease, releasePlan, validatePack } from '../scripts/release.mjs';
+import { GitHubApi, planDispatch, planPush, publishNpm, publishRelease, releasePlan, validatePack } from '../scripts/release.mjs';
 
 const before = 'a'.repeat(40);
 const sha = 'b'.repeat(40);
@@ -283,7 +283,13 @@ function assertWorkflowContract(source) {
   assert.match(workflow, /needs: check/);
   assert.match(workflow, /permissions:\n      contents: write/);
   assert.match(workflow, /cancel-in-progress: false/);
-  assert.match(workflow, /group: release-\$\{\{ github.sha \}\}/);
+  assert.match(workflow, /group: release-dsh-sync/);
+  const releaseJob = workflow.slice(workflow.indexOf('\n  release:'));
+  assert.match(releaseJob, /permissions:\n      contents: write\n      id-token: write/);
+  assert.ok(!workflow.slice(0, workflow.indexOf('\n  release:')).includes('id-token: write'));
+  assert.match(releaseJob, /node-version: '24'/);
+  assert.ok(!workflow.includes('NODE_AUTH_TOKEN') && !workflow.includes('NPM_TOKEN'));
+  assert.match(releaseJob, /run: node scripts\/release.mjs/);
   for (const line of workflow.split('\n').filter(line => line.includes('uses:'))) {
     assert.match(line, /actions\/(?:checkout@3d3c42e5aac5ba805825da76410c181273ba90b1|setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1)/);
   }
@@ -294,3 +300,84 @@ function assertWorkflowContract(source) {
   assert.ok(!workflow.includes('${{ inputs.'));
   assert.ok(!workflow.includes('${{ github.event.inputs.'));
 }
+
+function npmFixture({ latest, existing = false, mismatch = false, missingAfter = false, lostResponse = false } = {}) {
+  const name = '@anime-fan-5903/dsh-sync';
+  const archive = { ...files[0], path: '/generated-fixture/' + files[0].name };
+  const integrity = `sha512-${createHash('sha512').update(archive.bytes).digest('base64')}`;
+  const record = { name, version, dist: { integrity: mismatch ? 'sha512-different' : integrity } };
+  const data = { name, versions: existing ? { [version]: record } : {}, 'dist-tags': latest ? { latest } : {} };
+  const calls = [];
+  return { archive, data, calls,
+    async fetcher(url, options) {
+      assert.equal(url, 'https://registry.npmjs.org/' + encodeURIComponent(name));
+      assert.equal(options.redirect, 'error');
+      return new Response(JSON.stringify(data));
+    },
+    async run(args) {
+      calls.push(args);
+      assert.equal(args[0], 'publish'); assert.equal(args[1], archive.path);
+      for (const flag of ['--ignore-scripts', '--provenance', '--registry=https://registry.npmjs.org/']) assert.ok(args.includes(flag));
+      assert.equal(args[args.indexOf('--access') + 1], 'public');
+      if (!missingAfter) data.versions[version] = record;
+      const tag = args[args.indexOf('--tag') + 1]; data['dist-tags'][tag] = version;
+      if (lostResponse) throw new Error('Lost npm response after publication');
+    },
+  };
+}
+
+test('npm publishes exact Release archive bytes and verifies remote integrity', async () => {
+  const fixture = npmFixture({ latest: '0.3.2' });
+  assert.deepEqual(await publishNpm({ version, ...fixture }), { version, status: 'published', latest: version });
+  assert.equal(fixture.calls.length, 1);
+  assert.equal(fixture.calls[0][fixture.calls[0].indexOf('--tag') + 1], 'latest');
+});
+
+test('npm matching version reruns verify without mutation; changed bytes fail closed', async () => {
+  const fixture = npmFixture({ latest: version, existing: true });
+  assert.equal((await publishNpm({ version, ...fixture })).status, 'already-published');
+  assert.deepEqual(fixture.calls, []);
+  const mismatch = npmFixture({ latest: version, existing: true, mismatch: true });
+  await assert.rejects(publishNpm({ version, ...mismatch }), /different archive bytes/);
+  assert.deepEqual(mismatch.calls, []);
+});
+
+test('npm older releases cannot demote latest even when jobs arrive out of order', async () => {
+  const fixture = npmFixture({ latest: '0.4.0' });
+  assert.equal((await publishNpm({ version, ...fixture })).latest, '0.4.0');
+  assert.equal(fixture.calls[0][fixture.calls[0].indexOf('--tag') + 1], `release-${version}`);
+});
+
+test('npm lost publication response is recoverable without republishing', async () => {
+  const fixture = npmFixture({ latest: '0.3.2', lostResponse: true });
+  await assert.rejects(publishNpm({ version, ...fixture }), /Lost npm response/);
+  assert.equal((await publishNpm({ version, ...fixture })).status, 'already-published');
+  assert.equal(fixture.calls.length, 1);
+});
+
+test('npm metadata errors never authorize a publish; only 404 means absent', async () => {
+  for (const status of [401, 403, 429, 500]) {
+    const fixture = npmFixture();
+    fixture.fetcher = async () => new Response('', { status });
+    await assert.rejects(publishNpm({ version, ...fixture }), /metadata request failed/);
+    assert.deepEqual(fixture.calls, []);
+  }
+  const fixture = npmFixture(); const read = fixture.fetcher; let reads = 0;
+  fixture.fetcher = (...args) => ++reads === 1 ? new Response('', { status: 404 }) : read(...args);
+  assert.equal((await publishNpm({ version, ...fixture })).status, 'published');
+});
+
+test('npm malformed metadata, unconfirmed publication and stale latest fail visibly', async () => {
+  const absent = npmFixture({ missingAfter: true });
+  await assert.rejects(publishNpm({ version, ...absent }), /missing or has a different name/);
+  for (const latest of ['0.3.2', undefined]) {
+    const fixture = npmFixture({ existing: true, latest });
+    await assert.rejects(publishNpm({ version, ...fixture }), /latest/);
+    assert.deepEqual(fixture.calls, []);
+  }
+  const fixture = npmFixture({ latest: '0.4.0-rc.1' });
+  await assert.rejects(publishNpm({ version, ...fixture }), /stable version/);
+  assert.deepEqual(fixture.calls, []);
+  fixture.fetcher = async () => new Response(JSON.stringify({ name: 'wrong', versions: {}, 'dist-tags': {} }));
+  await assert.rejects(publishNpm({ version, ...fixture }), /identity/);
+});

@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PluginSync, pluginAsset, pluginId, validatePlugin } from '../src/plugin-sync.js';
+import { validateAsset } from '../src/model.js';
 
 function row(name = 'example-plugin', version = '1.0.0', extra = {}) {
   return { name, version, enabled: true, installed: true, availability: 'profile', source: `${name}@^${version}`, ...extra };
@@ -424,4 +425,55 @@ test('confirmed installation preserves unrelated new and changed bundles for the
   manager.rows.find(item => item.name === 'new-local-plugin').version = '3.0.0';
   await sync.install([{ id: another.id, fingerprint: another.fingerprint }]);
   assert.equal((await sync.capture()).find(asset => asset.name === 'new-local-plugin').version, '3.0.0');
+});
+
+const selfName = '@anime-fan-5903/dsh-sync';
+const historicalSelf = () => ({ id: pluginId(selfName), type: 'plugins', name: selfName, version: '0.3.3', enabled: true, source: 'registry' });
+
+test('historical self declarations validate on the wire but never authorize restoration', async t => {
+  const { sync, calls } = await fixture(t, [row(selfName)]);
+  const self = historicalSelf();
+  assert.equal(validateAsset(self), self);
+  assert.throws(() => pluginAsset(selfName, '0.3.3', true), { code: 'invalid-data' });
+  await sync.apply([self, pluginAsset('retained-plugin', '1.0.0', true)]);
+  assert.deepEqual((await sync.capture()).map(asset => asset.name), ['retained-plugin']);
+  assert.ok(!sync.status().items.some(item => item.name === selfName));
+  await assert.rejects(sync.install([{ id: self.id, fingerprint: 'a'.repeat(64) }]), { code: 'stale-choice' });
+  assert.deepEqual(calls, []);
+  await assert.rejects(sync.apply([self, self]), { code: 'invalid-data' });
+  for (const edit of [{ id: pluginId('other') }, { version: '^0.3.3' }, { token: 'fixture' }, { source: 'builtin', version: null }]) {
+    assert.throws(() => validateAsset({ ...self, ...edit }), { code: 'invalid-data' });
+    await assert.rejects(sync.apply([{ ...self, ...edit }]), { code: 'invalid-data' });
+  }
+});
+
+for (const enabled of [true, false]) test(`startup removes only validated historical self metadata with plugins enabled=${enabled}`, async t => {
+  const { sync, directory } = await fixture(t);
+  await sync.dispose();
+  const self = historicalSelf(); const retained = pluginAsset('retained-plugin', '1.0.0', false);
+  const fingerprint = 'a'.repeat(64);
+  const state = { format: 1, desired: { [self.id]: self, [retained.id]: retained },
+    observed: { [self.id]: fingerprint, [retained.id]: fingerprint },
+    ignored: { [self.id]: fingerprint, [retained.id]: fingerprint },
+    results: { [self.id]: { fingerprint, code: 'failed' }, [retained.id]: { fingerprint, code: 'failed' } } };
+  const file = path.join(directory, 'plugins.json');
+  await writeFile(file, JSON.stringify(state));
+  const upgraded = new PluginSync({ directory }); t.after(() => upgraded.dispose());
+  await upgraded.start({ enabled });
+  for (const key of ['desired', 'observed', 'ignored', 'results']) delete state[key][self.id];
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), state);
+  await upgraded.dispose();
+  const reopened = new PluginSync({ directory }); t.after(() => reopened.dispose());
+  await reopened.start({ enabled });
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), state);
+});
+
+test('malformed historical self records fail without rewriting persisted state', async t => {
+  const { sync, directory } = await fixture(t); await sync.dispose();
+  const self = { ...historicalSelf(), version: '^0.3.3' };
+  const bytes = JSON.stringify({ format: 1, desired: { [self.id]: self }, observed: {}, ignored: {}, results: {} });
+  const file = path.join(directory, 'plugins.json'); await writeFile(file, bytes);
+  const upgraded = new PluginSync({ directory }); t.after(() => upgraded.dispose());
+  await assert.rejects(upgraded.start(), { code: 'invalid-data' });
+  assert.equal(await readFile(file, 'utf8'), bytes);
 });
