@@ -1,4 +1,4 @@
 - insert:
     - id: dsh-sync
-      name: dsh-sync
+      name: "@anime-fan-5903/dsh-sync"
       config: {}

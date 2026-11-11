@@ -10,7 +10,7 @@ const version = '0.3.3';
 const tag = `v${version}`;
 const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const files = [
-  { name: `dsh-sync-${version}.tgz`, bytes: Buffer.from('generated test archive'), type: 'application/gzip' },
+  { name: `anime-fan-5903-dsh-sync-${version}.tgz`, bytes: Buffer.from('generated test archive'), type: 'application/gzip' },
   { name: 'SHA256SUMS', bytes: Buffer.from('generated test checksum'), type: 'text/plain' },
 ];
 const assetFor = file => ({ name: file.name, state: 'uploaded', size: file.bytes.length, digest: hash(file.bytes) });
@@ -82,11 +82,11 @@ test('push planning compares exact before and after tips, including multi-commit
   const reads = [];
   const manifestAt = async commit => {
     reads.push(commit);
-    return { name: 'dsh-sync', version: commit === before ? '0.3.2' : version };
+    return { name: '@anime-fan-5903/dsh-sync', version: commit === before ? '0.3.2' : version };
   };
   assert.deepEqual(await planPush(event, context, manifestAt), { publish: true, tag, version, sha });
   assert.deepEqual(reads, [before, sha]);
-  assert.equal((await planPush(event, context, () => ({ name: 'dsh-sync', version }))).publish, false);
+  assert.equal((await planPush(event, context, () => ({ name: '@anime-fan-5903/dsh-sync', version }))).publish, false);
   for (const change of [{ before: '0'.repeat(40) }, { before: undefined }, { after: before }, { deleted: true }, { forced: true }, { ref: 'refs/heads/feature' }]) {
     await assert.rejects(planPush({ ...event, ...change }, context, manifestAt));
   }
@@ -102,7 +102,7 @@ test('manual recovery requires main and an exact explicit stable source version'
   const reads = [];
   const manifestAt = commit => {
     reads.push(commit);
-    return { name: 'dsh-sync', version };
+    return { name: '@anime-fan-5903/dsh-sync', version };
   };
   assert.deepEqual(await planDispatch(event, context, manifestAt), { publish: true, tag, version, sha });
   assert.deepEqual(reads, [sha]);
@@ -114,7 +114,7 @@ test('manual recovery requires main and an exact explicit stable source version'
   }
   await assert.rejects(planDispatch({}, context, manifestAt));
   await assert.rejects(planDispatch(event, context, () => ({ name: 'other', version })));
-  await assert.rejects(planDispatch({ inputs: { version: '0.3.3-rc.1' } }, context, () => ({ name: 'dsh-sync', version: '0.3.3-rc.1' })));
+  await assert.rejects(planDispatch({ inputs: { version: '0.3.3-rc.1' } }, context, () => ({ name: '@anime-fan-5903/dsh-sync', version: '0.3.3-rc.1' })));
 });
 
 test('publication creates the exact tag, uploads to a draft, and publishes last', async () => {
@@ -242,7 +242,7 @@ test('API failures are not absence and credentials stay on fixed GitHub API orig
 });
 
 test('package inspection requires expected resources and excludes local or private files', () => {
-  const pack = { name: 'dsh-sync', version, filename: `dsh-sync-${version}.tgz`, files: ['package.json', 'index.js', 'client.js', 'LICENSE', 'cordis.patch.yml', 'locale/en.json'].map(path => ({ path })) };
+  const pack = { name: '@anime-fan-5903/dsh-sync', version, filename: `anime-fan-5903-dsh-sync-${version}.tgz`, files: ['package.json', 'index.js', 'client.js', 'LICENSE', 'cordis.patch.yml', 'locale/en.json'].map(path => ({ path })) };
   assert.equal(validatePack(pack, version), pack);
   for (const name of ['../secret', '/secret', 'src/../secret', 'src\\secret', '_local/state.json', '.github/workflows/ci.yml', 'src/.env', 'src/key.pem', 'src/credentials/token.json', 'node_modules/a.js', 'unknown.txt']) {
     assert.throws(() => validatePack({ ...pack, files: [...pack.files, { path: name }] }, version), name);

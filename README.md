@@ -21,7 +21,7 @@ Conversations, credentials, installed package files, and arbitrary project/profi
 
 Tested on DSH `0.2.2-rc.1`. Nearby versions may be compatible, but compatibility is not guaranteed. Browser and Host must run on the same computer for sign-in. Organizational policies may restrict consent.
 
-1. Install the package directory through DSH's plugin manager, restart DSH, and open **Settings → DSH Sync**.
+1. Install `@anime-fan-5903/dsh-sync` from npm through DSH's plugin manager, restart DSH, and open **Settings → DSH Sync**.
 2. Sign in with Microsoft. If the browser does not open, use **Open Microsoft sign-in**.
 3. Review **Sync targets** and **Sync assets**, and exclude anything that should stay local. Initialize a new vault or join the existing vault in the same account; do not reinitialize a working vault.
 4. If using encryption, choose a passphrase of at least 12 characters and save the one-time recovery key separately from this device and OneDrive. On an existing encrypted vault, unlock once to establish automatic unlock on supported Windows devices.

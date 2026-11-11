@@ -41,7 +41,7 @@ test('plugin assets have stable UUIDv8 identities and exact portable fields', ()
   assert.match(first.id, /^[a-f0-9]{8}-[a-f0-9]{4}-8[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
   assert.equal(first.id, pluginAsset(first.name, '2.0.0', true).id);
   assert.notEqual(first.id, pluginId('different-plugin'));
-  for (const name of ['dsh-sync', '../plugin', 'UPPER', '_private', '@scope', '@scope/../x', 'https://example.test/plugin', 'a;command', '', 'x'.repeat(215)]) {
+  for (const name of ['dsh-sync', '@anime-fan-5903/dsh-sync', '../plugin', 'UPPER', '_private', '@scope', '@scope/../x', 'https://example.test/plugin', 'a;command', '', 'x'.repeat(215)]) {
     assert.throws(() => pluginAsset(name, '1.0.0', true), { code: 'invalid-data' });
   }
   for (const version of ['latest', '^1.0.0', '~1.0.0', '1', '1.2', '01.2.3', '1.2.3-01', 'v1.2.3', '1.2.3 ', '1.2.3\n', '1.2.3+' + 'a'.repeat(129)]) {

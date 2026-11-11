@@ -1,5 +1,10 @@
 {
-  "name": "dsh-sync",
+  "name": "@anime-fan-5903/dsh-sync",
+  "repository": { "type": "git", "url": "git+https://github.com/anime-fan-5903/dsh-sync.git" },
+  "homepage": "https://github.com/anime-fan-5903/dsh-sync#readme",
+  "bugs": { "url": "https://github.com/anime-fan-5903/dsh-sync/issues" },
+  "keywords": ["dsh", "deepseek-harness", "sync", "onedrive", "skills"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "version": "0.3.3",
   "license": "GPL-3.0-only",
   "description": "Synchronize DSH instructions, Skills, portable settings, model configuration and plugin declarations across devices with optional cloud encryption.",

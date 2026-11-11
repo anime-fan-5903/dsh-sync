@@ -37,8 +37,8 @@ export async function planPush(event, { eventName, ref, sha }, manifestAt) {
   // A push can contain several commits. Its first parent is not the previous main tip.
   const previous = await manifestAt(event.before);
   const current = await manifestAt(event.after);
-  assert.equal(current.name, 'dsh-sync', 'Unexpected package name.');
-  assert.equal(previous.name, current.name, 'The package name must not change during release.');
+  assert.equal(current.name, '@anime-fan-5903/dsh-sync', 'Unexpected package name.');
+  assert.ok(previous.name === current.name || previous.name === 'dsh-sync', 'Unexpected previous package name.');
   return { ...releasePlan(previous.version, current.version), sha };
 }
 
@@ -47,7 +47,7 @@ export async function planDispatch(event, { eventName, ref, sha }, manifestAt) {
   assert.equal(ref, 'refs/heads/main', 'Manual releases only run on main.');
   assert.ok(typeof sha === 'string' && shaPattern.test(sha) && !/^0+$/.test(sha), 'A full source commit SHA is required.');
   const current = await manifestAt(sha);
-  assert.equal(current.name, 'dsh-sync', 'Unexpected package name.');
+  assert.equal(current.name, '@anime-fan-5903/dsh-sync', 'Unexpected package name.');
   // Reuse the stable-version policy without pretending a manual request is a push.
   const plan = releasePlan(current.version, current.version);
   assert.equal(event.inputs?.version, current.version, 'The requested version must exactly match package.json at the selected main commit.');
@@ -55,9 +55,9 @@ export async function planDispatch(event, { eventName, ref, sha }, manifestAt) {
 }
 
 export function validatePack(pack, version) {
-  assert.equal(pack.name, 'dsh-sync', 'Unexpected packed package name.');
+  assert.equal(pack.name, '@anime-fan-5903/dsh-sync', 'Unexpected packed package name.');
   assert.equal(pack.version, version, 'Packed version does not match the source version.');
-  assert.equal(pack.filename, `dsh-sync-${version}.tgz`, 'Unexpected archive filename.');
+  assert.equal(pack.filename, `anime-fan-5903-dsh-sync-${version}.tgz`, 'Unexpected archive filename.');
   assert.ok(Array.isArray(pack.files) && pack.files.length > 0, 'Package file list is required.');
   const files = pack.files.map(file => file.path);
   for (const name of files) {
@@ -173,7 +173,7 @@ export async function publishRelease({ api, version, sha, files }) {
   assert.ok(stablePattern.test(version), 'Invalid release version.');
   assert.match(sha, shaPattern, 'Invalid source commit.');
   assert.ok(!/^0+$/.test(sha), 'Invalid source commit.');
-  assert.deepEqual(files.map(file => file.name), [`dsh-sync-${version}.tgz`, 'SHA256SUMS']);
+  assert.deepEqual(files.map(file => file.name), [`anime-fan-5903-dsh-sync-${version}.tgz`, 'SHA256SUMS']);
   const tag = `v${version}`;
   let commit = await tagCommit(api, tag);
   assert.ok(commit === null || commit === sha, `${tag} already belongs to another commit; it will not be moved.`);

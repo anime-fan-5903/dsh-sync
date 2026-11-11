@@ -19,7 +19,7 @@ function canonical(value) {
   return JSON.stringify(value);
 }
 function hash(value) { return createHash('sha256').update(canonical(value)).digest('hex'); }
-function validName(name) { return typeof name === 'string' && name.length <= 214 && NAME.test(name) && name !== 'dsh-sync'; }
+function validName(name) { return typeof name === 'string' && name.length <= 214 && NAME.test(name) && name !== 'dsh-sync' && name !== '@anime-fan-5903/dsh-sync'; }
 function validVersion(version) { return typeof version === 'string' && version.length <= 128 && VERSION.test(version); }
 
 export function pluginId(name) {
